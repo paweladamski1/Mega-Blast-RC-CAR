@@ -29,8 +29,8 @@ void blinkTask(void *pvParameter);
 
 
 
-MotorController motor(AIN1, AIN2, PWMA,  BIN1, BIN2, PWMB, STBY); //25, 26, 27, 33, 32, 14, 13);
-PS4ControllerInput controller(LED_LIGHT);
+MotorController motor(AIN1, AIN2, PWMA,  BIN1, BIN2, PWMB, STBY); 
+PS4ControllerInput controllerPS4(LED_LIGHT);
 
 /*
  * SETUP
@@ -39,10 +39,10 @@ void setup()
 {
   //sets pins
   pinMode(LED_STATUS, OUTPUT);
-  
+
   Serial.begin(9600);
   motor.begin();
-  controller.begin(); 
+  controllerPS4.begin(); 
 
   BlinkStatusLedAsync();
   delay(100);
@@ -62,12 +62,22 @@ void setup()
  */
 void loop()
 {  
-  controller.loop(motor);
+  controllerPS4.loop(motor);
   delay(20);
 }
 
-
-/* LIB
+/*
+ * LED Status Indicator Functions
+ *
+ * 1. Initialization Success:
+ *    - LED blinks 3 times, then stays on to indicate successful startup
+ *
+ * 2. Low Battery Warning:
+ *    - LED fast-blinks to indicate the battery needs charging
+ *
+ * 3. Battery Charging:
+ *    - LED is normally off
+ *    - Short blink every 2 seconds to indicate charging is in progress
  */
 volatile bool isBlinking = false;
 
@@ -83,7 +93,7 @@ void blinkTask(void *pvParameter)
 {
   if (isBlinking)
   {
-    vTaskDelete(NULL); // Jeśli już mruga – zakończ
+    vTaskDelete(NULL); 
   }
   isBlinking = true;
 
@@ -97,7 +107,7 @@ void blinkTask(void *pvParameter)
   digitalWrite(LED_STATUS, HIGH);
 
   isBlinking = false;
-  vTaskDelete(NULL); // Zakończ task
+  vTaskDelete(NULL); 
 }
 
 
