@@ -6,7 +6,7 @@ This is an open-source project for building a remote-controlled vehicle using an
 
 - Full-speed motor control using analog trigger (R2)
 - Directional steering using analog stick (left/right)
-- Brake function with R1
+- Brake function with L2
 - LED control for headlights and position lights
 - PS4 controller rumble and LED feedback
 - Safe power delivery and battery charging
