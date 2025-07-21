@@ -19,10 +19,13 @@ void MotorController::begin()
 
     pinMode(_stby, OUTPUT);
     digitalWrite(_stby, HIGH);
+    isStopFlag = true;
 }
 
-void MotorController::drive(int throttle, int steering, bool isReverse)
+void MotorController::drive(int throttle, int steering, EDirection direction)
 {
+    isStopFlag = (throttle == 0) ? true : false;
+
     throttle = constrain(throttle, -255, 255);
     steering = constrain(steering, -100, 100);
     if (steering > -5 && steering < 5)
@@ -31,27 +34,28 @@ void MotorController::drive(int throttle, int steering, bool isReverse)
     int _lSteering = (steering < 0) ? abs(steering) : 0;
     int _rSteering = (steering > 0) ? steering : 0;
 
-
-
     _lSteering = map(_lSteering, 0, 100, 0, 255);
     _rSteering = map(_rSteering, 0, 100, 0, 255);
 
-    int leftSpeed = constrain((throttle - _lSteering)+abs(_rSteering), 0, 255);
-    int rightSpeed = constrain((throttle - _rSteering)+abs(_lSteering), 0, 255);
+    int leftSpeed = constrain((throttle - _lSteering) + abs(_rSteering), 0, 255);
+    int rightSpeed = constrain((throttle - _rSteering) + abs(_lSteering), 0, 255);
 
-    setMotor(_ain1, _ain2, _pwma, (!isReverse) ? leftSpeed : -leftSpeed);
-    setMotor(_bin1, _bin2, _pwmb, (!isReverse) ? rightSpeed : -rightSpeed);
+    setMotor(_ain1, _ain2, _pwma, (direction == EDirection::FORWARD) ? leftSpeed : -leftSpeed);
+    setMotor(_bin1, _bin2, _pwmb, (direction == EDirection::FORWARD) ? rightSpeed : -rightSpeed);
 }
 
 void MotorController::stop()
 {
+    if (isStopFlag)
+        return;
+    isStopFlag = true;
     setMotor(_ain1, _ain2, _pwma, 0);
     setMotor(_bin1, _bin2, _pwmb, 0);
 }
 
 void MotorController::startEngine()
 {
-    digitalWrite(_stby, HIGH);
+    digitalWrite(_stby, HIGH);    
 }
 
 void MotorController::setMotor(int in1, int in2, int pwmPin, int speed)

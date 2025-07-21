@@ -1,70 +1,130 @@
 #include "PS4ControllerInput.h"
 
-bool PS4ControllerInput::IsConnected = false;
+bool PS4ControllerInput::FirstConnectFlag = false;
+bool PS4ControllerInput::FirstDisconnectFlag = false;
+GamepadPtr PS4ControllerInput::gamepad = nullptr;
+EDirection PS4ControllerInput::Direction = EDirection::FORWARD;
 
 PS4ControllerInput::PS4ControllerInput(int led_light) : _ledLight(led_light)
 {
     currentData = {0, 0, false};
-    IsConnected = false;
+    FirstConnectFlag = false;
 }
 
 void PS4ControllerInput::begin()
 {
     pinMode(_ledLight, OUTPUT);
-    PS4.begin();
-    PS4.setLed(0, 0, 255);
+
+    String fv = BP32.firmwareVersion();
+    Serial.print("Firmware version installed: ");
+    Serial.println(fv);
+
+    // To get the BD Address (MAC address) call:
+    const uint8_t *addr = BP32.localBdAddress();
+    Serial.print("BD Address: ");
+    for (int i = 0; i < 6; i++)
+    {
+        Serial.print(addr[i], HEX);
+        if (i < 5)
+            Serial.print(":");
+        else
+            Serial.println();
+    }
+
+    Serial.println("Bluepad32 setup...");
+    BP32.setup(&PS4ControllerInput::onConnected, &PS4ControllerInput::onDisconnected);
+    Serial.println("Bluetooth started. Waiting for controller...");
+    BP32.forgetBluetoothKeys();
+}
+
+void PS4ControllerInput::onConnected(GamepadPtr gp)
+{
+    if (gamepad == nullptr)
+    {
+        Serial.println("Controller connected");
+        Serial.print(gp->getModelName());
+        gamepad = gp;
+        FirstConnectFlag = false;
+    }
+}
+
+void PS4ControllerInput::onDisconnected(GamepadPtr gp)
+{
+    gamepad = nullptr;
+    FirstConnectFlag = false;
+}
+
+bool PS4ControllerInput::isConnected()
+{
+    return gamepad != nullptr && gamepad->isConnected();
 }
 
 void PS4ControllerInput::loop(MotorController &motor)
 {
-    if (!PS4.isConnected())
-        return;
+    BP32.update();
 
-    if (PS4.PSButton())
+    if (!isConnected())
     {
-        Serial.println("PS button was pressed - esp_restart!");
         setLight(false);
-        esp_restart();
+        motor.stop();
+        return;
     }
 
-    if (!IsConnected)
+    if (gamepad->miscButtons() & PS4_BTN)
     {
-        setLight(true);
-        PS4.setFlashRate(10, 10);
-        PS4.setRumble(50, 0);
-        PS4.sendToController();
-        delay(200);
-        PS4.setRumble(0, 0);
-        PS4.sendToController();
-        IsConnected = true;
-        motor.startEngine();
-        Serial.println("Connected to PS4 Controller!");
+        gamepad->setColorLED(0, 0, 0);
+        gamepad->playDualRumble(
+            0, // delayedStartMs
+            500, // durationMs
+            128, // weakMagnitude
+            255  // strongMagnitude
+        );
+        Serial.println("restart esp32");
+        gamepad->disconnect();
+        delay(5000);
+        
+        esp_restart();
+        return;
     }
 
-    if (PS4.Right())
-        Serial.println("Strzałka w prawo");
-    if (PS4.Left())
-        Serial.println("Strzałka w lewo");
-    if (PS4.Up())
-        Serial.println("Strzałka w górę");
-    if (PS4.Down())
-        Serial.println("Strzałka w dół");
+    if (!FirstConnectFlag)
+    {
+        FirstConnectFlag = true;
+        setLight(true);
+        gamepad->setColorLED(255, 255, 255);
+        gamepad->playDualRumble(10, 500, 128, 255);
+        motor.startEngine();
+    }
 
-    if (PS4.Square())
-        Serial.println("Kwadrat");
+    if (isArrowRight())
+        Serial.print(" Arr. Right ");
+    if (isArrowLeft())
+        Serial.print(" Arr. Left ");
+    if (isArrowUp())
+        Serial.print(" Arr. Up ");
+    if (isArrowDown())
+        Serial.print(" Arr. Down ");
 
-    if (PS4.Cross())
-        Serial.println("Krzyżyk");
+    if (gamepad->a())
+        Serial.print(" Cross ");
 
-    if (PS4.Circle())
-        Serial.println("Kółko");
+    if (gamepad->b())
+        Serial.print(" Circle ");
 
-    if (PS4.Triangle())
-        Serial.println("Trójkąt");
+    if (gamepad->x())
+        Serial.print(" Square ");
+
+    if (gamepad->y())
+        Serial.print(" Triangle ");
+
+    if (isR1())
+        Serial.print(" r1 ");
+
+    if (isL1())
+        Serial.print(" l1 ");
 
     ControlData data = getControlData();
-    motor.drive(data.momentum, data.steering, data.IsReverse);
-    delay(70);
+    motor.drive(data.momentum, data.steering, data.direction);
 }
 
 void PS4ControllerInput::setLight(bool turn_on)
@@ -74,41 +134,38 @@ void PS4ControllerInput::setLight(bool turn_on)
 
 ControlData PS4ControllerInput::getControlData()
 {
-    if (!PS4.isConnected())
+    if (!isConnected())
     {
         // reset
         currentData.momentum = 0;
         currentData.steering = 0;
         currentData.brake = false;
+        controllerIdleAction();
         return currentData;
     }
-    static bool isReverse = false;
+
     static int _s_loop_cnt = 0;
     _s_loop_cnt++;
 
-    int throttle = PS4.R2Value();
-    int brakeForce = PS4.L2Value();
+    int throttle = gamepad->throttle(); // (0 - 1023)
+    int brakeForce = gamepad->brake();  // (0 - 1023)
 
-    bool brake = PS4.L2Value() > 0;
-    int steering = map(PS4.LStickX(), -128, 127, -100, 100);
-    if (PS4.R1() && currentData.momentum == 0)
+    bool brake = gamepad->brake() > 0;
+    int steering = map(gamepad->axisX(), -511, 512, -100, 100);
+
+    if (isR1() && currentData.momentum == 0)
     {
-        isReverse = !isReverse;
-        Serial.println("switch direction:");
-        controllerSetDirectionAction((!isReverse)? EDirection::FORWARD : EDirection::REVERSE );
-        Serial.print(isReverse);
-        delay(500);
+        toggleDirection();
     }
 
     if (currentData.momentum >= throttle && !brake) // free-rolling simulation
     {
-        if (_s_loop_cnt % 5 == 0)
+        if (_s_loop_cnt % 2 == 0 && currentData.momentum > 0)
             currentData.momentum--;
     }
     else if (currentData.momentum > throttle && brake) // braking
     {
-        if (_s_loop_cnt % 5 == 0)
-            currentData.momentum -= brakeForce;
+        currentData.momentum -= brakeForce;
     }
     else if (throttle > currentData.momentum)
     {
@@ -117,54 +174,97 @@ ControlData PS4ControllerInput::getControlData()
     }
     if (currentData.momentum == 0)
     {
+        Serial.print(" momentium:  ");
+        Serial.print(currentData.momentum);
+        Serial.print("  ");
+
         controllerIdleAction();
     }
+    else
+    {
+        Serial.print(" momentium:  ");
+        Serial.print(currentData.momentum);
+        Serial.print("  ");
+        controllerCoastingAction(Direction);
+    }
     currentData.momentum = constrain(currentData.momentum, 0, 255);
-
-    // currentData.momentum=throttle;
-    // currentData.throttle=constrain(currentData.throttle, 0, 255);
     currentData.steering = steering;
     currentData.brake = brake;
-    currentData.IsReverse = isReverse;
+    currentData.direction = Direction;
 
     return currentData;
 }
 
 void PS4ControllerInput::controllerAcceleratingAction(int throttle)
 {
-    PS4.setRumble(0, throttle);
-    PS4.sendToController();
+    gamepad->playDualRumble(0, 100, 128, 255);
 }
 
 void PS4ControllerInput::controllerBreakingAction(int power)
 {
-    PS4.setRumble(0, power);
-    PS4.sendToController();
+    gamepad->playDualRumble(0, 100, 128, 0);
 }
 
 void PS4ControllerInput::controllerIdleAction()
 {
-    PS4.setRumble(0, 0);
-    PS4.sendToController();
+    Serial.print(" controllerIdleAction ");
+    gamepad->setColorLED(255, 255, 255);
 }
 
-void PS4ControllerInput::controllerCoastingAction()
+void PS4ControllerInput::controllerCoastingAction(EDirection dir)
 {
-    PS4.setRumble(0, 0);
-    PS4.sendToController();
-}
-
-void PS4ControllerInput::controllerSetDirectionAction(EDirection dir)
-{
-    switch(dir)
+    Serial.print(" controllerCoastingAction ");
+    Serial.print(dir);
+    switch (dir)
     {
-       case FORWARD:
-            PS4.setLed(255,0,0);
-            break;
-        case REVERSE:
-            PS4.setLed(255,255,255);
-            break;
+    case FORWARD:
+        gamepad->setColorLED(0, 255, 0);
+        break;
+    case REVERSE:
+        gamepad->setColorLED(255, 0, 0);
+        break;
     }
-    PS4.sendToController();
+}
 
+void PS4ControllerInput::controllerOnChangeDirectionAction(EDirection dir)
+{
+}
+
+void PS4ControllerInput::toggleDirection()
+{
+    Direction = (Direction == EDirection::FORWARD) ? EDirection::REVERSE : EDirection::FORWARD;
+    Serial.print(" switch Direction:");
+    controllerOnChangeDirectionAction(Direction);
+    Serial.print(Direction);
+    delay(2000);
+}
+
+bool PS4ControllerInput::isArrowRight()
+{
+    return gamepad->dpad() & DPAD_ARROW_RIGHT;
+}
+
+bool PS4ControllerInput::isArrowLeft()
+{
+    return gamepad->dpad() & DPAD_ARROW_LEFT;
+}
+
+bool PS4ControllerInput::isArrowUp()
+{
+    return gamepad->dpad() & DPAD_ARROW_UP;
+}
+
+bool PS4ControllerInput::isArrowDown()
+{
+    return gamepad->dpad() & DPAD_ARROW_DOWN;
+}
+
+bool PS4ControllerInput::isL1()
+{
+    return gamepad->l1();
+}
+
+bool PS4ControllerInput::isR1()
+{
+    return gamepad->r1();
 }

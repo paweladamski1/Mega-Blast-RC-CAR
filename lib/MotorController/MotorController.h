@@ -3,7 +3,11 @@
 
 #include <Arduino.h>
 
-
+enum EDirection
+{
+    FORWARD,
+    REVERSE
+};
 
 class MotorController {
 public:
@@ -12,7 +16,7 @@ public:
                     int stby);
 
     void begin();
-    void drive(int throttle, int steering, bool isReverse); // throttle: -255 to 255, steering: -100 to 100
+    void drive(int throttle, int steering, EDirection direction); // throttle: -255 to 255, steering: -100 to 100
     void stop();
     void startEngine();
 
@@ -22,6 +26,7 @@ private:
     int _ain1, _ain2, _pwma;
     int _bin1, _bin2, _pwmb;
     int _stby;
+    bool isStopFlag;
 };
 
 #endif

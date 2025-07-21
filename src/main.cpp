@@ -1,6 +1,5 @@
 #include <Arduino.h>
-#include "BluetoothSerial.h"
-#include <PS4Controller.h>
+#include <Bluepad32.h>
 #include "MotorController.h"
 #include "PS4ControllerInput.h"
 #include "StatusLedManager.h"
@@ -23,7 +22,7 @@
 #define LED_LIGHT 16
 #define CHARGER_DETECT_PIN 34
 
-BluetoothSerial SerialBT;
+
 bool IsShown = false;
 
 StatusLedManager ledStatusManager(LED_STATUS);
@@ -50,15 +49,9 @@ void setup()
   controllerPS4.begin();
 
   delay(100);
-  if (!SerialBT.begin("f8:b3:b7:58:f1:fa"))
-  {
-    Serial.println("BluetoothSerial initialization failed");
-    return;
-  }
 
   Serial.println("Bluetooth started.");
   Serial.print("ESP32 MAC address (BT): ");
-  Serial.println(SerialBT.getBtAddressString());
 }
 
 /*
@@ -74,7 +67,7 @@ void loop()
   }
 
   controllerPS4.loop(motor);
-  delay(20);
+  delay(100);
 }
 
 EPOWER currentPowerState = EPOWER::NORMAL;
