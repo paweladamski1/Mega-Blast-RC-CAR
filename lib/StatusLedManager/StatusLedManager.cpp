@@ -2,13 +2,18 @@
 
 bool StatusLedManager::isBlinking = false;
 TaskHandle_t StatusLedManager::blinkTaskHandle = nullptr;
+uint8_t StatusLedManager::LED_PIN=-1;
 
-StatusLedManager::StatusLedManager(uint8_t pin) : ledPin(pin) {}
+
+StatusLedManager::StatusLedManager(uint8_t pin)
+{
+    LED_PIN = pin; 
+} 
 
 void StatusLedManager::begin()
 {
     isBlinking = false;
-    pinMode(ledPin, OUTPUT);
+    pinMode(LED_PIN, OUTPUT);
 }
 
 void StatusLedManager::blinkAsync(EPOWER status)
@@ -20,7 +25,7 @@ void StatusLedManager::blinkAsync(EPOWER status)
         blinkTaskHandle = nullptr;
         isBlinking = false;
     }
-
+    Serial.println("blinkAsync");
     EPOWER *arg = new EPOWER(status);
     xTaskCreate(&StatusLedManager::blinkTask, "blink_task", 2048, arg, 5, &blinkTaskHandle);
 }
@@ -35,26 +40,30 @@ void StatusLedManager::blinkTask(void *pvParameter)
     isBlinking = true;
     EPOWER status = *(EPOWER *)pvParameter;
     delete (EPOWER *)pvParameter;
-
+    Serial.println("");
+    Serial.print("blinkTask pin=");
+    Serial.print(LED_PIN);
+    Serial.println("");
+    Serial.println("");
     switch (status)
     {
     case EPOWER::NORMAL:
         for (int i = 0; i < 3; ++i)
         {
-            digitalWrite(2, HIGH);
+            digitalWrite(LED_PIN, HIGH);
             vTaskDelay(100 / portTICK_PERIOD_MS);
-            digitalWrite(2, LOW);
+            digitalWrite(LED_PIN, LOW);
             vTaskDelay(100 / portTICK_PERIOD_MS);
         }
-        digitalWrite(2, HIGH);
+        digitalWrite(LED_PIN, HIGH);
         break;
 
     case EPOWER::LOW_BATTERY:
         for (int i = 0; i < 20; ++i)
         {
-            digitalWrite(2, HIGH);
+            digitalWrite(LED_PIN, HIGH);
             vTaskDelay(50 / portTICK_PERIOD_MS);
-            digitalWrite(2, LOW);
+            digitalWrite(LED_PIN, LOW);
             vTaskDelay(50 / portTICK_PERIOD_MS);
         }
         break;
@@ -62,9 +71,9 @@ void StatusLedManager::blinkTask(void *pvParameter)
     case EPOWER::CHARGING:
         for (int i = 0; i < 10; ++i)
         {
-            digitalWrite(2, HIGH);
+            digitalWrite(LED_PIN, HIGH);
             vTaskDelay(50 / portTICK_PERIOD_MS);
-            digitalWrite(2, LOW);
+            digitalWrite(LED_PIN, LOW);
             vTaskDelay(1950 / portTICK_PERIOD_MS);
         }
         break;

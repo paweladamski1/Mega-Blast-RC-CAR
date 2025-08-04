@@ -34,7 +34,7 @@ public:
     void blinkAsync(EPOWER status);
 
 private:
-    uint8_t ledPin;
+    static uint8_t LED_PIN;
     static bool isBlinking;
     static TaskHandle_t blinkTaskHandle;
 
