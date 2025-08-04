@@ -5,7 +5,7 @@
 #include <Bluepad32.h>
 #include "MotorController.h"
 
-struct ControlData
+struct SControlData
 {
     int momentum; // 0 to 255
     int steering; // -100 to 100
@@ -30,17 +30,20 @@ public:
     void begin();
     void loop(MotorController &motor);
     void setLight(bool on);
-    ControlData getControlData();
+    
 
 private:
     static void onConnected(GamepadPtr gp);
     static void onDisconnected(GamepadPtr gp);
 
-    void controllerAcceleratingAction(int throttle);
-    void controllerBreakingAction(int power);
-    void controllerIdleAction();
-    void controllerCoastingAction(EDirection dir);
-    void controllerOnChangeDirectionAction(EDirection dir);
+    void updateControlData();
+
+    
+    void onAcceleratingAction(int throttle);    
+    void onBrakingAction(int brakeForce);
+    void onIdleAction();
+    void onCoastingAction(EDirection dir);
+    void onChangeDirectionAction(EDirection dir);
     void toggleDirection();
 
 
@@ -54,7 +57,7 @@ private:
 
     bool isConnected();
     static GamepadPtr gamepad;
-    ControlData currentData;
+    SControlData ControlData;
     static bool FirstConnectFlag;
     static bool FirstDisconnectFlag;
     int _ledLight;
