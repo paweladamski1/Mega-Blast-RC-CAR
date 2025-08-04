@@ -5,37 +5,46 @@
 #include "StatusLedManager.h"
 #include "PowerManager.h"
 
-// ch2 A
+/* MOTOR DRIVER */
+#define PWMA 32
+#define AIN2 33
 #define AIN1 25
-#define AIN2 26
-#define PWMA 27
+#define STBY 26
+#define BIN1 27
+#define BIN2 14
+#define PWMB 12
 
-// ch1 B
-#define BIN1 33
-#define BIN2 32
-#define PWMB 14
 
-// Standby pin
-#define STBY 13
+/* LEDS */
+#define LED_STATUS 21
 
-#define LED_STATUS 2
-#define LED_LIGHT 16
+/* lights */
+#define LED_LEFT_INDICATOR  18
+#define LED_BRAKE           5
+#define LED_MAIN_REAR       17
+#define LED_REVERSE         16
+#define LED_AUX             4
+#define LED_RIGHT_INDICATOR 0
+
+/* SENSORS  */
 #define CHARGER_DETECT_PIN 34
-
 
 bool IsShown = false;
 
 StatusLedManager ledStatusManager(LED_STATUS);
 PowerManager powerManager(CHARGER_DETECT_PIN, ledStatusManager);
 MotorController motor(AIN1, AIN2, PWMA, BIN1, BIN2, PWMB, STBY);
-PS4ControllerInput controllerPS4(LED_LIGHT);
+PS4ControllerInput controllerPS4(LED_MAIN_REAR);
 
 /*
  * SETUP
  */
 void setup()
 {
-  // sets pins
+  Serial.begin(9600);
+
+  Serial.println("ESP Setup.....");
+  
   ledStatusManager.begin();
   powerManager.begin();
 
@@ -44,14 +53,10 @@ void setup()
   pinMode(CHARGER_DETECT_PIN, INPUT);
   analogReadResolution(12);
 
-  Serial.begin(9600);
   motor.begin();
   controllerPS4.begin();
 
   delay(100);
-
-  Serial.println("Bluetooth started.");
-  Serial.print("ESP32 MAC address (BT): ");
 }
 
 /*
