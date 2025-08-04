@@ -18,6 +18,7 @@ void MotorController::begin()
     pinMode(_pwmb, OUTPUT);
 
     pinMode(_stby, OUTPUT);
+    
     digitalWrite(_stby, HIGH);
     isStopFlag = true;
 }
@@ -51,6 +52,7 @@ void MotorController::stop()
     isStopFlag = true;
     setMotor(_ain1, _ain2, _pwma, 0);
     setMotor(_bin1, _bin2, _pwmb, 0);
+
 }
 
 void MotorController::startEngine()
@@ -60,10 +62,10 @@ void MotorController::startEngine()
 
 void MotorController::setMotor(int in1, int in2, int pwmPin, int speed)
 {
-    Serial.println("");
-    if (in1 == 25)
+    Serial.print(" ");
+    if (in1 == _ain1)
         Serial.print("A");
-    else if (in1 == 33)
+    else if (in1 == _bin1)
         Serial.print("B");
 
     const int MAX_SAFE_PWM = 255; // 100%
@@ -84,6 +86,8 @@ void MotorController::setMotor(int in1, int in2, int pwmPin, int speed)
 
     Serial.print(" speed:");
     Serial.print(speed);
-
+    if (in1 == _bin1)    
+        Serial.println("");
+        
     analogWrite(pwmPin, abs(speed));
 }
