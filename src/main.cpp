@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <Bluepad32.h>
 #include "MotorController.h"
-#include "PS4ControllerInput.h"
+#include "BluePad32Controller.h"
 #include "StatusLedManager.h"
 #include "PowerManager.h"
 
@@ -34,7 +34,7 @@ bool IsShown = false;
 StatusLedManager ledStatusManager(LED_STATUS);
 PowerManager powerManager(CHARGER_DETECT_PIN, ledStatusManager);
 MotorController motor(AIN1, AIN2, PWMA, BIN1, BIN2, PWMB, STBY);
-PS4ControllerInput controllerPS4(LED_MAIN_REAR);
+BluePad32Controller controllerPS4(LED_MAIN_REAR);
 
 /*
  * SETUP
@@ -44,7 +44,7 @@ void setup()
   Serial.begin(9600);
 
   Serial.println("ESP Setup.....");
-  
+
   ledStatusManager.begin();
   powerManager.begin();
 

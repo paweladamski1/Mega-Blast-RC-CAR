@@ -1,5 +1,5 @@
-#ifndef PS4CONTROLLERINPUT_H
-#define PS4CONTROLLERINPUT_H
+#ifndef BLUEPAD32CONTROLLER_H
+#define BLUEPAD32CONTROLLER_H
 
 #include <Arduino.h>
 #include <Bluepad32.h>
@@ -23,10 +23,10 @@ struct SControlData
 #define PS4_L1               0x0010
 #define PS4_R1               0x0020
 
-class PS4ControllerInput
+class BluePad32Controller
 {
 public:
-    PS4ControllerInput(int led_light);
+    BluePad32Controller(int led_light);
     void begin();
     void loop(MotorController &motor);
     void setLight(bool on);

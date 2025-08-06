@@ -1,17 +1,17 @@
-#include "PS4ControllerInput.h"
+#include "BluePad32Controller.h"
 
-bool PS4ControllerInput::FirstConnectFlag = false;
-bool PS4ControllerInput::FirstDisconnectFlag = false;
-GamepadPtr PS4ControllerInput::gamepad = nullptr;
-EDirection PS4ControllerInput::Direction = EDirection::FORWARD;
+bool BluePad32Controller::FirstConnectFlag = false;
+bool BluePad32Controller::FirstDisconnectFlag = false;
+GamepadPtr BluePad32Controller::gamepad = nullptr;
+EDirection BluePad32Controller::Direction = EDirection::FORWARD;
 
-PS4ControllerInput::PS4ControllerInput(int led_light) : _ledLight(led_light)
+BluePad32Controller::BluePad32Controller(int led_light) : _ledLight(led_light)
 {
     ControlData = {0, 0, false};
     FirstConnectFlag = false;
 }
 
-void PS4ControllerInput::begin()
+void BluePad32Controller::begin()
 {
     pinMode(_ledLight, OUTPUT);
 
@@ -32,12 +32,12 @@ void PS4ControllerInput::begin()
     }
 
     Serial.println("Bluepad32 setup...");
-    BP32.setup(&PS4ControllerInput::onConnected, &PS4ControllerInput::onDisconnected);
+    BP32.setup(&BluePad32Controller::onConnected, &BluePad32Controller::onDisconnected);
     Serial.println("Bluetooth started. Waiting for controller...");
     BP32.forgetBluetoothKeys();
 }
 
-void PS4ControllerInput::onConnected(GamepadPtr gp)
+void BluePad32Controller::onConnected(GamepadPtr gp)
 {
     if (gamepad == nullptr)
     {
@@ -48,18 +48,18 @@ void PS4ControllerInput::onConnected(GamepadPtr gp)
     }
 }
 
-void PS4ControllerInput::onDisconnected(GamepadPtr gp)
+void BluePad32Controller::onDisconnected(GamepadPtr gp)
 {
     gamepad = nullptr;
     FirstConnectFlag = false;
 }
 
-bool PS4ControllerInput::isConnected()
+bool BluePad32Controller::isConnected()
 {
     return gamepad != nullptr && gamepad->isConnected();
 }
 
-void PS4ControllerInput::loop(MotorController &motor)
+void BluePad32Controller::loop(MotorController &motor)
 {
     BP32.update();
 
@@ -130,12 +130,12 @@ void PS4ControllerInput::loop(MotorController &motor)
     motor.drive(ControlData.momentum, ControlData.steering, ControlData.direction);
 }
 
-void PS4ControllerInput::setLight(bool turn_on)
+void BluePad32Controller::setLight(bool turn_on)
 {
     digitalWrite(_ledLight, (turn_on) ? HIGH : LOW);
 }
 
-void PS4ControllerInput::updateControlData()
+void BluePad32Controller::updateControlData()
 {
     if (!isConnected())
     {
@@ -196,14 +196,14 @@ void PS4ControllerInput::updateControlData()
 
 
 
-void PS4ControllerInput::onAcceleratingAction(int throttle)
+void BluePad32Controller::onAcceleratingAction(int throttle)
 {
     ControlData.momentum += map(throttle, 0, 1023, 0, 50);
     Serial.print(" Accelerating ");
     gamepad->playDualRumble(0, 200, 0, 150);
 }
 
-void PS4ControllerInput::onBrakingAction(int brakeForce)
+void BluePad32Controller::onBrakingAction(int brakeForce)
 {
     Serial.print(" braking ");
     Serial.print(brakeForce);
@@ -222,13 +222,13 @@ void PS4ControllerInput::onBrakingAction(int brakeForce)
 
 
 
-void PS4ControllerInput::onIdleAction()
+void BluePad32Controller::onIdleAction()
 {
     // Serial.print(" onIdleAction ");
     gamepad->setColorLED(255, 255, 255);
 }
 
-void PS4ControllerInput::onCoastingAction(EDirection dir)
+void BluePad32Controller::onCoastingAction(EDirection dir)
 {
     Serial.print(" onCoastingAction ");
     Serial.print(dir);
@@ -243,11 +243,11 @@ void PS4ControllerInput::onCoastingAction(EDirection dir)
     }
 }
 
-void PS4ControllerInput::onChangeDirectionAction(EDirection dir)
+void BluePad32Controller::onChangeDirectionAction(EDirection dir)
 {
 }
 
-void PS4ControllerInput::toggleDirection()
+void BluePad32Controller::toggleDirection()
 {
     Direction = (Direction == EDirection::FORWARD) ? EDirection::REVERSE : EDirection::FORWARD;
     Serial.print(" switch Direction:");
@@ -256,32 +256,32 @@ void PS4ControllerInput::toggleDirection()
     delay(500);
 }
 
-bool PS4ControllerInput::isArrowRight()
+bool BluePad32Controller::isArrowRight()
 {
     return gamepad->dpad() & DPAD_ARROW_RIGHT;
 }
 
-bool PS4ControllerInput::isArrowLeft()
+bool BluePad32Controller::isArrowLeft()
 {
     return gamepad->dpad() & DPAD_ARROW_LEFT;
 }
 
-bool PS4ControllerInput::isArrowUp()
+bool BluePad32Controller::isArrowUp()
 {
     return gamepad->dpad() & DPAD_ARROW_UP;
 }
 
-bool PS4ControllerInput::isArrowDown()
+bool BluePad32Controller::isArrowDown()
 {
     return gamepad->dpad() & DPAD_ARROW_DOWN;
 }
 
-bool PS4ControllerInput::isL1()
+bool BluePad32Controller::isL1()
 {
     return gamepad->l1();
 }
 
-bool PS4ControllerInput::isR1()
+bool BluePad32Controller::isR1()
 {
     return gamepad->r1();
 }
