@@ -6,7 +6,6 @@
 #include "PowerManager.h"
 #include "LightLedController.h"
 #include "SoundController.h"
- 
 
 /* MOTOR DRIVER */
 #define PWMA 32
@@ -38,30 +37,31 @@
 
 bool IsShown = false;
 
-
 StatusLedManager ledStatusManager(LED_STATUS);
 PowerManager powerManager(CHARGER_DETECT_PIN, ledStatusManager);
 MotorController motor(AIN1, AIN2, PWMA, BIN1, BIN2, PWMB, STBY);
-BluePad32Controller pad(LED_MAIN_REAR);
-LightLedController lights(LED_LEFT_INDICATOR, LED_RIGHT_INDICATOR, LED_BRAKE, LED_MAIN_REAR, LED_REVERSE, LED_AUX);
+
 SoundController sound(I2S_BCLK, I2S_LRCLK, I2S_DIN);
+LightLedController lights(LED_LEFT_INDICATOR, LED_RIGHT_INDICATOR, LED_BRAKE, LED_MAIN_REAR, LED_REVERSE, LED_AUX, sound);
+BluePad32Controller pad(lights, sound);
 
 /*
  * SETUP
  */
+int sampleRate;
 void setup()
 {
+  sampleRate = 24000;
   Serial.begin(9600);
 
   Serial.println("ESP Setup.....");
-  lights.begin();
- 
+  
 
-  sound.begin();
-//  sound.startEngine();
-  //sound.setEngineRpm(500);
-  //sound.startBlinker();
- 
+  
+
+  //  sound.startEngine();
+  // sound.setEngineRpm(500);
+  // sound.startBlinker();
 
   ledStatusManager.begin();
   powerManager.begin();
@@ -70,32 +70,24 @@ void setup()
 
   pinMode(CHARGER_DETECT_PIN, INPUT);
   analogReadResolution(12);
-
+  
+  sound.begin();
+  lights.begin();
   motor.begin();
   pad.begin();
 
   delay(100);
-
+  lights.setIndicator(true,true);
 }
+
+
 
 /*
  * LOOP
  */
 void loop()
 {
-   if (Serial.available()) {
-        char c = Serial.read();
-        switch (c) {
-            case 'h': sound.playHorn(); break;
-            case 'e': sound.startEngine(); break;
-            case 's': sound.stopEngine(); break;
-            case 'b': sound.startBlinker(); break;
-            case 'x': sound.stopBlinker(); break;
-            case 'r': sound.setEngineRpm(1000); break;
-            case 'q': sound.setEngineRpm(250); break;
-        }
-    }
-    
+  test_sound();
   powerManager.loop();
   if (powerManager.isCharging())
   {
@@ -105,6 +97,57 @@ void loop()
 
   pad.loop(motor);
   delay(100);
+}
+
+void test_sound()
+{
+  if (Serial.available())
+  {
+    // Display test mode information
+    /* Serial.println("=== TEST MODE - Sound Control ===");
+     Serial.println("Commands:");
+     Serial.println("h - Play horn");
+     Serial.println("e - Start engine");
+     Serial.println("s - Stop engine");
+     Serial.println("b - Start blinker");
+     Serial.println("x - Stop blinker");
+     Serial.println("r - Set RPM --100");
+     Serial.println("q - Set RPM ++100");
+     Serial.println("=================================");*/
+    char c = Serial.read();
+    Serial.println(c);
+
+    switch (c)
+    {
+    case 'h':
+      sound.playHorn();
+      break;
+    case 'e':
+      sound.startEngine();
+      break;
+    case 's':
+      sound.stopEngine();
+      break;
+    case 'b':
+      sound.startBlinker();
+      break;
+    case 'x':
+      sound.stopBlinker();
+      break;
+    case 'r':
+      sampleRate = sampleRate - 100;
+      Serial.println("new rate = ");
+      Serial.print(sampleRate);
+      sound.setEngineRpm(sampleRate);
+      break;
+    case 'q':
+      sampleRate = sampleRate + 500;
+      Serial.println("new rate = ");
+      Serial.print(sampleRate);
+      sound.setEngineRpm(sampleRate);
+      break;
+    }
+  }
 }
 
 EPOWER currentPowerState = EPOWER::NORMAL;
