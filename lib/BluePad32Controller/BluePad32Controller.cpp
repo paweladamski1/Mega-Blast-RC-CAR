@@ -5,7 +5,7 @@ bool BluePad32Controller::FirstDisconnectFlag = false;
 GamepadPtr BluePad32Controller::gamepad = nullptr;
 EDirection BluePad32Controller::Direction = EDirection::FORWARD;
 
-BluePad32Controller::BluePad32Controller(int led_light) : _ledLight(led_light)
+BluePad32Controller::BluePad32Controller(LightLedController &lights, SoundController &sound) : lights(lights), sound(sound)
 {
     ControlData = {0, 0, false};
     FirstConnectFlag = false;
@@ -13,8 +13,6 @@ BluePad32Controller::BluePad32Controller(int led_light) : _ledLight(led_light)
 
 void BluePad32Controller::begin()
 {
-    pinMode(_ledLight, OUTPUT);
-
     String fv = BP32.firmwareVersion();
     Serial.print("Firmware version installed: ");
     Serial.println(fv);
@@ -44,7 +42,7 @@ void BluePad32Controller::onConnected(GamepadPtr gp)
         Serial.println("Controller connected");
         Serial.print(gp->getModelName());
         gamepad = gp;
-        FirstConnectFlag = false;
+        FirstConnectFlag = false;        
     }
 }
 
@@ -65,7 +63,8 @@ void BluePad32Controller::loop(MotorController &motor)
 
     if (!isConnected())
     {
-        setLight(false);
+        lights.setMainRearLight(false);
+        sound.stopEngine();
         motor.stop();
         return;
     }
@@ -80,6 +79,8 @@ void BluePad32Controller::loop(MotorController &motor)
             255  // strongMagnitude
         );
         Serial.println("motor.stop");
+        sound.stopEngine();
+        sound.startBlinker();
         motor.stop();
         delay(2000);
         Serial.println("gamepad->disconnect");
@@ -92,17 +93,27 @@ void BluePad32Controller::loop(MotorController &motor)
 
     if (!FirstConnectFlag)
     {
-        FirstConnectFlag = true;
-        setLight(true);
+        FirstConnectFlag = true;        
+        sound.startEngine();
+        vTaskDelay(3000);
+        lights.setMainRearLight(true);
+
         gamepad->setColorLED(255, 255, 255);
         gamepad->playDualRumble(10, 500, 128, 255);
         motor.startEngine();
     }
 
     if (isArrowRight())
-        Serial.print(" Arr. Right ");
+    {
+        Serial.print(" Arr. Right ");        
+        lights.setIndicator(isArrowLeft(), isArrowRight());
+    }
     if (isArrowLeft())
+    {
         Serial.print(" Arr. Left ");
+        lights.setIndicator(isArrowLeft(), isArrowRight());
+    }
+
     if (isArrowUp())
         Serial.print(" Arr. Up ");
     if (isArrowDown())
@@ -130,10 +141,6 @@ void BluePad32Controller::loop(MotorController &motor)
     motor.drive(ControlData.momentum, ControlData.steering, ControlData.direction);
 }
 
-void BluePad32Controller::setLight(bool turn_on)
-{
-    digitalWrite(_ledLight, (turn_on) ? HIGH : LOW);
-}
 
 void BluePad32Controller::updateControlData()
 {
