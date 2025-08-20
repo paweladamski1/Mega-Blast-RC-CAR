@@ -55,13 +55,6 @@ void setup()
   Serial.begin(9600);
 
   Serial.println("ESP Setup.....");
-  
-
-  
-
-  //  sound.startEngine();
-  // sound.setEngineRpm(500);
-  // sound.startBlinker();
 
   ledStatusManager.begin();
   powerManager.begin();
@@ -70,17 +63,15 @@ void setup()
 
   pinMode(CHARGER_DETECT_PIN, INPUT);
   analogReadResolution(12);
-  
+
   sound.begin();
   lights.begin();
   motor.begin();
   pad.begin();
 
   delay(100);
-  lights.setIndicator(true,true);
+  lights.setIndicator(true, true);
 }
-
-
 
 /*
  * LOOP
@@ -104,16 +95,16 @@ void test_sound()
   if (Serial.available())
   {
     // Display test mode information
-    /* Serial.println("=== TEST MODE - Sound Control ===");
-     Serial.println("Commands:");
-     Serial.println("h - Play horn");
-     Serial.println("e - Start engine");
-     Serial.println("s - Stop engine");
-     Serial.println("b - Start blinker");
-     Serial.println("x - Stop blinker");
-     Serial.println("r - Set RPM --100");
-     Serial.println("q - Set RPM ++100");
-     Serial.println("=================================");*/
+    Serial.println("=== TEST MODE - Sound Control ===");
+    Serial.println("Commands:");
+    Serial.println("h - Play horn");
+    Serial.println("e - Start engine");
+    Serial.println("s - Stop engine");
+    Serial.println("b - Start blinker");
+    Serial.println("x - Stop blinker");
+    Serial.println("r - Set RPM --100");
+    Serial.println("q - Set RPM ++100");
+    Serial.println("=================================");
     char c = Serial.read();
     Serial.println(c);
 
