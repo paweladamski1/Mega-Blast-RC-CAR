@@ -2,10 +2,17 @@
 #define SOUND_CONTROLLER_H
 
 #include <Arduino.h>
+#include "SampleItem.h"
+
+#include "AudioFileSourcePROGMEM.h"
+#include "AudioGeneratorWAV.h"
+#include "AudioOutputI2S.h"
+#include "AudioOutputMixer.h"
 
 
 
-class SoundController {
+class SoundController
+{
 public:
     SoundController(int bclkPin, int lrclkPin, int dinPin);
 
@@ -20,22 +27,29 @@ public:
 
     void playHorn();
 
+    void loop();
+
 private:
+
     int _bclkPin, _lrclkPin, _dinPin;
-    TaskHandle_t _engineTaskHandle;
-    TaskHandle_t _blinkerTaskHandle;
-    TaskHandle_t _hornTaskHandle;
+
     volatile bool _engineOn;
     volatile bool _blinkerOn;
+    volatile bool _hornOn;
+    
     volatile uint16_t _engineRpm;
 
-    static void _engineTask(void* param);
-    static void _blinkerTask(void* param);
-    static void _hornTask(void* param);
+    SampleItem* engineStartItem;
+    SampleItem* hornItem;
+    SampleItem* blinkerItem;
+    SampleItem* engineRunItem;
 
-    void _playSound(const uint8_t* data, size_t length);
-    void _playEngineSound();
-    void _stopTask(TaskHandle_t* handle);
+    AudioOutputI2S* outI2S;
+    AudioOutputMixer* mixer;
+
+    static void _soundControllerTask(void *param);
+    static void _loopTask(void *param);
+
 };
 
 #endif // SOUND_CONTROLLER_H
