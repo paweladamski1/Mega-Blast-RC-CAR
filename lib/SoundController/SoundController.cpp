@@ -1,11 +1,8 @@
 #include "SoundController.h"
-
-#include "sound_engine.h"
-#include "sound_horn.h"
-#include "sound_blinker.h"
 #include <algorithm>
 
-SoundController::SoundController(int bclkPin, int lrclkPin, int dinPin)
+SoundController::SoundController(int bclkPin, int lrclkPin, int dinPin,
+                                 int _sd_sckPin, int _sd_misoPin, int _sd_mosiPin, int _sd_csPin)
     : _bclkPin(bclkPin), _lrclkPin(lrclkPin), _dinPin(dinPin),
       _engineOn(false), _blinkerOn(false), _hornOn(false), _engineRpm(0)
 {
@@ -13,18 +10,29 @@ SoundController::SoundController(int bclkPin, int lrclkPin, int dinPin)
 
 void SoundController::begin()
 {
+    SPI.begin(_sd_sckPin, _sd_misoPin, _sd_mosiPin, _sd_csPin);
+    if (!SD.begin(_sd_csPin, SPI))
+    {
+        Serial.println("SD Card mount failed!");
+        while (1)
+            delay(100);
+    }
+    Serial.println("SD Card OK");
+
     outI2S = new AudioOutputI2S();
     outI2S->SetPinout(_bclkPin, _lrclkPin, _dinPin);
     outI2S->begin();
 
     mixer = new AudioOutputMixer(16, outI2S);
-    engineStartItem = new SampleItem("engineStart", mixer, sampleEngineStart, sampleEngineStart_len, 0.7f, false);
-    engineRunItem = new SampleItem("endgineRun", mixer, sampleEngineRun, sampleEngineRun_len, 0.3f, true);
-    hornItem = new SampleItem("horn", mixer, sampleHorn, sampleHorn_len, 1.0f, false);
-    blinkerItem = new SampleItem("blinker", mixer, sampleBlinker, sampleBlinker_len, 1.0f, true);
+    engineStartItem = new SampleItem("engineStart", mixer, "/engine_start1.mp3", 1.0f, false);
+    engineRuningItem = new SampleItem("endgineRun", mixer, "/engine_runing1.mp3", 0.5f, true);
+    hornItem = new SampleItem("horn", mixer, "/horn1.mp3", 1.0f, false);
+    blinkerItem = new SampleItem("blinker", mixer, "/blinker.mp3", 1.0f, true);
 
     xTaskCreatePinnedToCore(_soundControllerTask, "soundLoopTask", 4096, this, 1, NULL, 1);
     xTaskCreatePinnedToCore(_loopTask, "soundLoopTask", 4096, this, 1, NULL, 1);
+     Serial.println("");
+    Serial.println("SoundController::begin complette ");
 }
 
 void SoundController::_soundControllerTask(void *param)
@@ -34,7 +42,7 @@ void SoundController::_soundControllerTask(void *param)
     bool isAddedQueueFlag = false;
     auto *parent = static_cast<SoundController *>(param);
     auto *engineStartItem = parent->engineStartItem;
-    auto *engineRunItem = parent->engineRunItem;
+    auto *engineRuningItem = parent->engineRuningItem;
     auto *hornItem = parent->hornItem;
     auto *blinkerItem = parent->blinkerItem;
 
@@ -43,7 +51,7 @@ void SoundController::_soundControllerTask(void *param)
     int engineRpm = parent->_engineRpm;
     bool engineRunPrev = false;
     while (true)
-    {
+    {        
         if (parent->_hornOn)
         {
             hornItem->play();
@@ -51,47 +59,48 @@ void SoundController::_soundControllerTask(void *param)
             parent->_hornOn = false;
         }
 
-
         if (parent->_blinkerOn && !blinkerOn)
         {
             blinkerOn = true;
-            engineRunPrev = engineOn;
-            engineRunItem->stop();
+            engineRunPrev = engineOn;            
             blinkerItem->play();
         }
-        
+
         if (parent->_engineOn && !engineOn)
         {
-            engineOn=true;
-            if (!engineRunItem->isPlaying())
+            engineOn = true;
+            if (!engineRuningItem->isPlaying())
             {
+                blinkerItem->stop();
+                parent->_blinkerOn=false;
+                vTaskDelay(1000);
                 engineStartItem->play();
                 while (engineStartItem->isPlaying())
                 {
                     vTaskDelay(1);
                 }
-                engineRunItem->play();
+                engineRuningItem->play();
             }
         }
 
         if (!parent->_engineOn && engineOn)
         {
-            engineOn=false;
-            engineRunPrev=false;
-            engineRunItem->stop();
+            engineOn = false;
+            engineRunPrev = false;
+            engineRuningItem->stop();
         }
 
         if (!parent->_blinkerOn && blinkerOn)
         {
-            blinkerOn=false;
-            if(engineRunPrev)
-                engineRunItem->play();
+            blinkerOn = false;
+            if (engineRunPrev)
+                engineRuningItem->play();
             blinkerItem->stop();
         }
 
-        if(engineRpm != parent->_engineRpm)
+        if (engineRpm != parent->_engineRpm)
         {
-            engineRunItem->setRate(parent->_engineRpm);
+            engineRuningItem->setRate(parent->_engineRpm);
             engineRpm = parent->_engineRpm;
         }
         vTaskDelay(100);
@@ -101,13 +110,17 @@ void SoundController::_soundControllerTask(void *param)
 void SoundController::_loopTask(void *param)
 {
     auto *parent = static_cast<SoundController *>(param);
-    Serial.println("_loopTask runing.");
-    while(true)
+    if(!parent)
     {
+        Serial.println("Parent null!!!");    
+        while(1);
+    }
+    Serial.println("_loopTask runing.");
+    while (true)
+    {        
         parent->loop();
     }
 }
-
 
 void SoundController::startEngine()
 {
@@ -140,9 +153,9 @@ void SoundController::playHorn()
 }
 
 void SoundController::loop()
-{     
-    engineStartItem->loop();
-    engineRunItem->loop();    
-    hornItem->loop();
-    blinkerItem->loop();
+{   
+    engineStartItem->loop();   
+    engineRuningItem->loop();   
+    hornItem->loop();   
+    blinkerItem->loop();   
 }

@@ -35,13 +35,19 @@
 #define I2S_LRCLK 19
 #define I2S_DIN 23
 
+/* SD CARD */
+#define SD_MISO 35
+#define SD_SCK 13
+#define SD_MOSI 2
+#define SD_CS 15
+
 bool IsShown = false;
 
 StatusLedManager ledStatusManager(LED_STATUS);
 PowerManager powerManager(CHARGER_DETECT_PIN, ledStatusManager);
 MotorController motor(AIN1, AIN2, PWMA, BIN1, BIN2, PWMB, STBY);
 
-SoundController sound(I2S_BCLK, I2S_LRCLK, I2S_DIN);
+SoundController sound(I2S_BCLK, I2S_LRCLK, I2S_DIN, SD_SCK, SD_MISO, SD_MOSI, SD_CS);
 LightLedController lights(LED_LEFT_INDICATOR, LED_RIGHT_INDICATOR, LED_BRAKE, LED_MAIN_REAR, LED_REVERSE, LED_AUX, sound);
 BluePad32Controller pad(lights, sound);
 
@@ -53,9 +59,19 @@ void setup()
 {
   sampleRate = 24000;
   Serial.begin(9600);
-
+  delay(1000);
+  Serial.println("");
   Serial.println("ESP Setup.....");
 
+  SPI.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);
+  if (!SD.begin(SD_CS, SPI))
+  {
+    Serial.println("SD Card mount failed!");
+    while (1)
+      delay(100);
+  }
+  Serial.println("SD Card OK"); 
+  
   ledStatusManager.begin();
   powerManager.begin();
 
@@ -76,16 +92,16 @@ void setup()
 /*
  * LOOP
  */
+
+const int timeout = 80000;
 void loop()
 {
-  test_sound();
   powerManager.loop();
   if (powerManager.isCharging())
   {
     delay(1000);
     return;
   }
-
   pad.loop(motor);
   delay(100);
 }

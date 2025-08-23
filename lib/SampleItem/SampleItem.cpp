@@ -2,62 +2,44 @@
 
 SampleItem::SampleItem(String id,
                        AudioOutputMixer *mixer,
-                       const uint8_t *sampleData,
-                       size_t sampleLen,
+                       const char *filename,
                        float gain,
                        bool loop)
-    : _data(sampleData),
-      _len(sampleLen),
+    : _filename(filename),
       _loop(loop),
-      _stub(nullptr),
-      _file(nullptr),
-      _wav(nullptr),
+      _mixerOut(nullptr),
+      _file(nullptr), 
+      _player(nullptr), 
       _id(id),
       _isStop(false),
-      _rateHz(24000),
-      _changeRateOn(false)
+      _changeRateOn(false),
+      _rateHz(160000)
 {
-    // Create mixer input (owned by mixer, do not delete)
-    _stub = mixer ? mixer->NewInput() : nullptr;
-    if (_stub)
-    {
-        _stub->SetGain(gain);
-        
-    }
+    
 
-    // Create decoder; source will be created on play()
-    _wav = new AudioGeneratorWAV();
-    _rateHz=24000;
+    Serial.println("");
+    Serial.println("init SampleItem");
+    Serial.print(filename);
+    // Create mixer input (owned by mixer, do not delete)
+    _mixerOut = mixer ? mixer->NewInput() : nullptr;
+    if (_mixerOut)
+        _mixerOut->SetGain(gain);
 }
+
+ 
 
 SampleItem::~SampleItem()
 {
-    stop();
-    if (_wav)
-    {
-        delete _wav;
-        _wav = nullptr;
-    }
+    stop();   
     if (_file)
     {
         delete _file;
         _file = nullptr;
     }
-    // _stub is managed by mixer
+    // _mixerOut is managed by mixer
 }
 
-void SampleItem::_rewindSource()
-{
-    if (_file)
-    {
-        delete _file;
-        _file = nullptr;
-    }
-    // Recreate the PROGMEM source to start from the beginning (seek not used)
-    _file = new AudioFileSourcePROGMEM(_data, _len);
-    serialPrint(" - SampleItem::_rewindSource() ");
-}
-
+ 
 void SampleItem::play(bool isReplay)
 {
     if (_isStop && isReplay)
@@ -65,24 +47,33 @@ void SampleItem::play(bool isReplay)
     _isStop=false;    
     _sync = false;
     serialPrint("Play");
-    if (!_stub)
+    
+    if (!_mixerOut)
     {
-        Serial.println("_stub is null !");
+        Serial.println("_mixerOut is null !");
         return;
     }
-    // If already playing, do nothing (or call stop() if you prefer restart)
-    if (_wav && _wav->isRunning())
+    
+    if (_player && _player->isRunning())
     {
          Serial.println("isRunning!");
         return;
     }
+    
+    if (_file)
+    {
+        delete _file;
+        _file = nullptr;
+    }
+    
+    _file = new AudioFileSourceSD(_filename);    
 
-    _rewindSource();
-    if (!_wav)
-        _wav = new AudioGeneratorWAV();
-    _wav->begin(_file, _stub);
+    if (!_player)
+        _player = new AudioGeneratorMP3();
+    _player->begin(_file, _mixerOut);
+
     if(_changeRateOn)
-        _stub->SetRate(_rateHz);    
+        _mixerOut->SetRate(_rateHz);     
 
     _sync = true;
 }
@@ -90,16 +81,18 @@ void SampleItem::play(bool isReplay)
 void SampleItem::stop()
 {
     _isStop=true;
+    _sync=false;
     if (isPlaying())
     {
-        _wav->stop();
-        serialPrint("Stop");
+        serialPrint("Stop 1");
+        _player->stop();
+        serialPrint("Stop 2");
     }
 }
 
 bool SampleItem::isPlaying() const
 {
-    return (_wav && _wav->isRunning());
+    return (_player && _player->isRunning());
 }
 
 void SampleItem::loop()
@@ -108,17 +101,17 @@ void SampleItem::loop()
     {
         if (_sync)
         {
-            if (!_wav->loop())
+            if (!_player->loop())
             {
                 // Finished
                 if (_loop)
                 {
-                    _wav->stop();
+                    _player->stop();
                     play(true);
                 }
                 else
                 {
-                    _wav->stop();
+                    _player->stop();
                 }
             }
         }
@@ -130,8 +123,7 @@ void SampleItem::loop()
 }
 
 void SampleItem::serialPrint(const char *data)
-{
-    return;
+{ 
     Serial.println();
     Serial.print(_id);
     Serial.print(" ");
@@ -141,8 +133,8 @@ void SampleItem::serialPrint(const char *data)
 
 void SampleItem::setGain(float gain)
 {
-    if (_stub)
-        _stub->SetGain(gain);
+    if (_mixerOut)
+        _mixerOut->SetGain(gain);
 }
 
 void SampleItem::setRate(int hz)
