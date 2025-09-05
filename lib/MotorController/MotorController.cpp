@@ -62,11 +62,11 @@ void MotorController::startEngine()
 
 void MotorController::setMotor(int in1, int in2, int pwmPin, int speed)
 {
-    Serial.print(" ");
+    /*Serial.print(" ");
     if (in1 == _ain1)
         Serial.print("A");
     else if (in1 == _bin1)
-        Serial.print("B");
+        Serial.print("B");*/
 
     const int MAX_SAFE_PWM = 255; // 100%
     bool forward = true;
@@ -78,7 +78,7 @@ void MotorController::setMotor(int in1, int in2, int pwmPin, int speed)
     digitalWrite(in2, in2Data);
     speed = constrain(speed, -MAX_SAFE_PWM, MAX_SAFE_PWM);
 
-    Serial.print("      in1:");
+   /*Serial.print("      in1:");
     Serial.print(in1Data);
 
     Serial.print(" in2:");
@@ -87,7 +87,7 @@ void MotorController::setMotor(int in1, int in2, int pwmPin, int speed)
     Serial.print(" speed:");
     Serial.print(speed);
     if (in1 == _bin1)    
-        Serial.println("");
+        Serial.println("");*/
         
     analogWrite(pwmPin, abs(speed));
 }
