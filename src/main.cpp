@@ -5,7 +5,7 @@
 
 #include "PowerManager.h"
 #include "LightLedController.h"
-#include "SoundController.h"
+#include "AudioClipController.h"
 
 /* MOTOR DRIVER */
 #define PWMA 32

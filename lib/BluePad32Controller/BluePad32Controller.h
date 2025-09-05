@@ -5,7 +5,7 @@
 #include <Bluepad32.h>
 #include "MotorController.h"
 #include "LightLedController.h"
-#include "SoundController.h"
+#include "AudioClipController.h"
 
 struct SControlData
 {

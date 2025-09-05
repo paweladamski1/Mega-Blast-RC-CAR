@@ -2,7 +2,7 @@
 #define LIGHT_LED_CONTROLLER_H
 
 #include <Arduino.h>
-#include "SoundController.h"
+#include "AudioClipController.h"
 
 class LightLedController {
 public:
