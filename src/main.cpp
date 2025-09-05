@@ -2,7 +2,7 @@
 #include <Bluepad32.h>
 #include "MotorController.h"
 #include "BluePad32Controller.h"
-#include "StatusLedManager.h"
+
 #include "PowerManager.h"
 #include "LightLedController.h"
 #include "SoundController.h"
@@ -31,56 +31,48 @@
 #define CHARGER_DETECT_PIN 34
 
 /* SOUND */
-#define I2S_BCLK 22
-#define I2S_LRCLK 19
 #define I2S_DIN 23
+#define I2S_BCLK 2       
+#define I2S_LRCLK 19
+
 
 /* SD CARD */
 #define SD_MISO 35
-#define SD_SCK 13
-#define SD_MOSI 2
-#define SD_CS 15
-
+#define SD_SCK  13
+#define SD_MOSI 22        
+#define SD_CS   15
 bool IsShown = false;
 
-StatusLedManager ledStatusManager(LED_STATUS);
-PowerManager powerManager(CHARGER_DETECT_PIN, ledStatusManager);
+
+
+PowerManager powerManager(CHARGER_DETECT_PIN, LED_STATUS);
 MotorController motor(AIN1, AIN2, PWMA, BIN1, BIN2, PWMB, STBY);
 
 SoundController sound(I2S_BCLK, I2S_LRCLK, I2S_DIN, SD_SCK, SD_MISO, SD_MOSI, SD_CS);
 LightLedController lights(LED_LEFT_INDICATOR, LED_RIGHT_INDICATOR, LED_BRAKE, LED_MAIN_REAR, LED_REVERSE, LED_AUX, sound);
 BluePad32Controller pad(lights, sound);
 
+
+ 
 /*
  * SETUP
  */
 int sampleRate;
 void setup()
 {
-  sampleRate = 24000;
   Serial.begin(9600);
+  sampleRate = 24000;
+  
   delay(1000);
   Serial.println("");
   Serial.println("ESP Setup.....");
+ 
 
-  SPI.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);
-  if (!SD.begin(SD_CS, SPI))
-  {
-    Serial.println("SD Card mount failed!");
-    while (1)
-      delay(100);
-  }
-  Serial.println("SD Card OK"); 
-  
-  ledStatusManager.begin();
-  powerManager.begin();
-
-  ledStatusManager.blinkAsync(EPOWER::NORMAL);
-
-  pinMode(CHARGER_DETECT_PIN, INPUT);
-  analogReadResolution(12);
 
   sound.begin();
+
+  powerManager.begin();
+  analogReadResolution(12);  
   lights.begin();
   motor.begin();
   pad.begin();
@@ -96,14 +88,14 @@ void setup()
 const int timeout = 80000;
 void loop()
 {
-  powerManager.loop();
-  if (powerManager.isCharging())
+  test_sound();  
+  if (PowerManager::isCharging())
   {
     delay(1000);
     return;
   }
   pad.loop(motor);
-  delay(100);
+  delay(50);
 }
 
 void test_sound()
@@ -127,40 +119,32 @@ void test_sound()
     switch (c)
     {
     case 'h':
-      sound.playHorn();
+      sound.playHorn("main");
       break;
     case 'e':
-      sound.startEngine();
+      sound.startEngine("main");
       break;
     case 's':
-      sound.stopEngine();
+      sound.stopEngine("main");
       break;
     case 'b':
-      sound.startBlinker();
+      sound.startBlinker("main");
       break;
     case 'x':
-      sound.stopBlinker();
+      sound.stopBlinker("main");
       break;
     case 'r':
       sampleRate = sampleRate - 100;
       Serial.println("new rate = ");
       Serial.print(sampleRate);
-      sound.setEngineRpm(sampleRate);
+      sound.setEngineRpm("main", sampleRate);
       break;
     case 'q':
       sampleRate = sampleRate + 500;
       Serial.println("new rate = ");
       Serial.print(sampleRate);
-      sound.setEngineRpm(sampleRate);
+      sound.setEngineRpm("main", sampleRate);
       break;
     }
   }
-}
-
-EPOWER currentPowerState = EPOWER::NORMAL;
-
-bool isCharging()
-{
-  int analogValue = analogRead(CHARGER_DETECT_PIN);
-  return analogValue > 2048; // np. 5V z ładowarki → wartość ADC > ~2.6V
 }
