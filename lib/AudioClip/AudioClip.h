@@ -88,5 +88,5 @@ private:
 
     void serialPrint(const char *data);                   // for debug
     void serialPrint(const char *data, const uint32_t n); // for debug
-    void printData(const char* Data,uint8_t NumBytes);
+    void serialPrint_fileHeader(const char* Data,uint8_t NumBytes);
 };

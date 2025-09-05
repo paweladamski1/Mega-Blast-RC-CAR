@@ -69,8 +69,6 @@ void AudioClip::loop(std::list<AudioClip *> &items)
         return;
     }
 
-    // Serial.print("void AudioClip::loop(std::list<AudioClip*>& items)");
-
     static bool ReadingFile = true;
     static bool IsRead = true;
 
@@ -106,7 +104,6 @@ bool AudioClip::isPlaying() const
 
 //--------------------------------------------------------------------------------------------------------------
 // PRIVATE
-
 bool AudioClip::_loadWavFileHeader(String FileName)
 {
     // Load wav file, if all goes ok returns true else false
@@ -190,25 +187,25 @@ void AudioClip::_dumpWAVHeader(WavHeader_Struct *Wav)
     if (memcmp(Wav->RIFFSectionID, "RIFF", 4) != 0)
     {
         Serial.print("Not a RIFF format file - ");
-        printData(Wav->RIFFSectionID, 4);
+        serialPrint_fileHeader(Wav->RIFFSectionID, 4);
         return;
     }
     if (memcmp(Wav->RiffFormat, "WAVE", 4) != 0)
     {
         Serial.print("Not a WAVE file - ");
-        printData(Wav->RiffFormat, 4);
+        serialPrint_fileHeader(Wav->RiffFormat, 4);
         return;
     }
     if (memcmp(Wav->FormatSectionID, "fmt", 3) != 0)
     {
         Serial.print("fmt ID not present - ");
-        printData(Wav->FormatSectionID, 3);
+        serialPrint_fileHeader(Wav->FormatSectionID, 3);
         return;
     }
     if (memcmp(Wav->DataSectionID, "data", 4) != 0)
     {
         Serial.print("data ID not present - ");
-        printData(Wav->DataSectionID, 4);
+        serialPrint_fileHeader(Wav->DataSectionID, 4);
         return;
     }
     // All looks good, dump the data
@@ -228,7 +225,7 @@ void AudioClip::_dumpWAVHeader(WavHeader_Struct *Wav)
     Serial.println(Wav->BlockAlign);
     Serial.print("Bits Per Sample :");
     Serial.println(Wav->BitsPerSample);
-    Serial.print("Data Size :");
+    Serial.print("data Size :");
     Serial.println(Wav->DataSize);
 }
 
@@ -313,11 +310,7 @@ uint16_t AudioClip::Mix(byte *samples, std::list<AudioClip *> &items)
                 activeCount++;
             }
         }
-
-        // Average to avoid clipping
-        /*if (activeCount > 1) {
-            mixedSample /= activeCount;
-        }*/
+      
         if (mixedSample > 32767 || mixedSample < -32768)
         {
             mixedSample /= activeCount;
@@ -340,7 +333,7 @@ uint16_t AudioClip::Mix(byte *samples, std::list<AudioClip *> &items)
         i += 2;
     }
 
-    //  We now alter the data according to the volume control
+    
     MaxBytesInBuffer = 0;
     for (AudioClip *item : items)
         if (item->_wav.LastNumBytesRead > MaxBytesInBuffer)
@@ -349,12 +342,10 @@ uint16_t AudioClip::Mix(byte *samples, std::list<AudioClip *> &items)
     if (MaxBytesInBuffer + 2 > NUM_BYTES_TO_READ_FROM_FILE)
         MaxBytesInBuffer = NUM_BYTES_TO_READ_FROM_FILE - 2;
 
-    // volume
+    //  We now alter the data according to the volume control
     for (i = 0; i < MaxBytesInBuffer; i += 2)
-    {
-
         *((int16_t *)(samples + i)) = (*((int16_t *)(samples + i))) * Volume;
-    }
+    
 
     return MaxBytesInBuffer;
 }
@@ -408,10 +399,10 @@ void AudioClip::serialPrint(const char *data, const uint32_t n)
     Serial.print(" ");
 }
 
-void AudioClip::printData(const char *Data, uint8_t NumBytes)
+void AudioClip::serialPrint_fileHeader(const char *data, uint8_t NumBytes)
 {
     for (uint8_t i = 0; i < NumBytes; i++)
-        Serial.print(Data[i]);
+        Serial.print(data[i]);
     Serial.println();
 }
 
