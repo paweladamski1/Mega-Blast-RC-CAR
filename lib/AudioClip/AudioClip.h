@@ -9,6 +9,21 @@
 // How many bytes to read from wav file at a time
 #define NUM_BYTES_TO_READ_FROM_FILE 1024
 
+/**
+ * @file AudioClip.h
+ * @brief AudioClip class for WAV file playback via I2S interface.
+ *
+ * This class facilitates the playback of WAV audio files stored on an SD card
+ * through the I2S interface, enabling high-quality sound output on ESP32-based
+ * microcontrollers. It supports functionalities such as reading WAV file headers,
+ * initializing I2S communication, and streaming audio data to an external DAC.
+ *
+ * Inspired by the tutorial at:
+ * http://www.xtronical.com/i2s-ep4
+ *
+ * @note Ensure the WAV files are in the correct format (e.g., 32-bit, mono, 44100Hz)
+ *       and stored in a supported directory on the SD card.
+ */
 
 
 struct WavHeader_Struct
