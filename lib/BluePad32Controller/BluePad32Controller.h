@@ -65,7 +65,7 @@ private:
     
     
     static EDirection Direction;
-    
+    bool _isConnectedState;
     
     
     //static BluePad32Controller* parent;  // static pointer to current object

@@ -9,6 +9,7 @@ BluePad32Controller::BluePad32Controller(LightLedController &lights, SoundContro
 {
     ControlData = {0, 0, false};
     FirstConnectFlag = false;
+    _isConnectedState=true;
 }
 
 void BluePad32Controller::begin()
@@ -61,14 +62,14 @@ void BluePad32Controller::loop(MotorController &motor)
 {
     BP32.update();
 
-    if (!isConnected())
+    if (!isConnected() && _isConnectedState)
     {
         lights.setMainRearLight(false);
-        sound.stopEngine();
+        sound.stopEngine("is not connect");
         motor.stop();
         return;
     }
-
+    _isConnectedState = true;
     if (gamepad->miscButtons() & PS4_BTN)
     {
         gamepad->setColorLED(0, 0, 0);
@@ -79,8 +80,8 @@ void BluePad32Controller::loop(MotorController &motor)
             255  // strongMagnitude
         );
         Serial.println("motor.stop");
-        sound.stopEngine();
-        sound.startBlinker();
+        sound.stopEngine("when disconnect");
+        sound.startBlinker("when disconnect");
         motor.stop();
         delay(2000);
         Serial.println("gamepad->disconnect");
@@ -94,25 +95,28 @@ void BluePad32Controller::loop(MotorController &motor)
     if (!FirstConnectFlag)
     {
         FirstConnectFlag = true;        
-        sound.startEngine();
-        vTaskDelay(3000);
         lights.setMainRearLight(true);
+        lights.setIndicator(false, false);
+        sound.startEngine(" Controller connected ");
+        vTaskDelay(3000);
+        
 
         gamepad->setColorLED(255, 255, 255);
         gamepad->playDualRumble(10, 500, 128, 255);
         motor.startEngine();
     }
 
-    if (isArrowRight())
+    /*if (isArrowRight())
     {
-        Serial.print(" Arr. Right ");        
-        lights.setIndicator(isArrowLeft(), isArrowRight());
+        Serial.print(" Arr. Right ");                
     }
     if (isArrowLeft())
     {
         Serial.print(" Arr. Left ");
         lights.setIndicator(isArrowLeft(), isArrowRight());
-    }
+    }*/
+   
+    lights.setIndicator(isArrowLeft(), isArrowRight());
 
     if (isArrowUp())
         Serial.print(" Arr. Up ");
@@ -120,7 +124,10 @@ void BluePad32Controller::loop(MotorController &motor)
         Serial.print(" Arr. Down ");
 
     if (gamepad->a())
+    {
         Serial.print(" Cross ");
+        sound.playHorn("BluePad32Controller::loop");
+    }
 
     if (gamepad->b())
         Serial.print(" Circle ");
@@ -182,18 +189,18 @@ void BluePad32Controller::updateControlData()
     }
     if (ControlData.momentum == 0)
     {
-        Serial.print(" momentium:  ");
-        Serial.print(ControlData.momentum);
-        Serial.print("  ");
+       // Serial.print(" momentium:  ");
+       // Serial.print(ControlData.momentum);
+       // Serial.print("  ");
 
         onIdleAction();
     }
     else
     {
-        Serial.print(" momentium:  ");
-        Serial.print(ControlData.momentum);
-        Serial.print("  ");
-        onCoastingAction(Direction);
+       // Serial.print(" momentium:  ");
+       // Serial.print(ControlData.momentum);
+       // Serial.print("  ");
+       // onCoastingAction(Direction);
     }
     ControlData.momentum = constrain(ControlData.momentum, 0, 255);
     ControlData.steering = steering;
