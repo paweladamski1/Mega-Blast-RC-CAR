@@ -58,13 +58,13 @@ void LightLedController::indicatorTask(void *param)
         {
             _leftIndicatorOn = true;
             digitalWrite(self->PIN_LEFT_INDICATOR, true);
-            self->sound.startBlinker();
+            self->sound.startBlinker("LightLedController - left indicator ON");
         }
         if (self->_rightIndicatorOn)
         {
             _rightIndicatorOn = true;
             digitalWrite(self->PIN_RIGHT_INDICATOR, true);
-            self->sound.startBlinker();
+            self->sound.startBlinker("LightLedController - right indicator ON");
         }
 
         vTaskDelay(self->blinkInterval);
@@ -79,7 +79,7 @@ void LightLedController::indicatorTask(void *param)
         if ((!self->_leftIndicatorOn && _leftIndicatorOn) || (!self->_rightIndicatorOn && _rightIndicatorOn))
         {
             if (!self->_leftIndicatorOn && !self->_rightIndicatorOn)
-                self->sound.stopBlinker();
+                self->sound.stopBlinker("LightLedController - right or left indicator OFF");
             _leftIndicatorOn = self->_leftIndicatorOn;
             _rightIndicatorOn = self->_rightIndicatorOn;
         }
