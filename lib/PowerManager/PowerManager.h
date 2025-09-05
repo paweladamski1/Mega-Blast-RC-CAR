@@ -2,21 +2,24 @@
 #define POWER_MANAGER_H
 
 #include <Arduino.h>
-#include "StatusLedManager.h"
+
 
 class PowerManager {
 public:
-    PowerManager(uint8_t chargerDetectPin, StatusLedManager& ledManager);
+    PowerManager(int chargerDetectPin, int ledStatusPin );
 
-    void begin();
-    void loop();
-    bool isCharging() const;
+    void begin();    
+    static bool isCharging();
 
 private:
-    uint8_t pin;
-    StatusLedManager& ledMgr;
-    EPOWER currentState;
-    bool charging;
+    int _chargerDetectPin;
+    int _ledStatusPin;
+    static bool _charging;
+
+    static void _task(void *param);
+    static void _ledChargingStatus(const int _ledStatusPin);
+    static void _ledBootSequence(const int _ledStatusPin);
+    static bool _getIsCharging(int detectPin);
 };
 
 #endif
