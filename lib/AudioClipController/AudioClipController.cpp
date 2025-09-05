@@ -1,7 +1,7 @@
-#include "SoundController.h"
+#include "AudioClipController.h"
 #include <algorithm>
 
-SoundController::SoundController(int bclkPin, int lrclkPin, int dinPin,
+AudioClipController::AudioClipController(int bclkPin, int lrclkPin, int dinPin,
                                  int _sd_sckPin, int _sd_misoPin, int _sd_mosiPin, int _sd_csPin)
     : _bclkPin(bclkPin), _lrclkPin(lrclkPin), _dinPin(dinPin),
       _engineOn(false), _blinkerOn(false), _hornOn(false), _engineRpm(0),
@@ -9,7 +9,7 @@ SoundController::SoundController(int bclkPin, int lrclkPin, int dinPin,
 {
 }
 
-void SoundController::begin()
+void AudioClipController::begin()
 {
 
     SPI.begin(_sd_sckPin, _sd_misoPin, _sd_mosiPin, _sd_csPin);
@@ -67,15 +67,15 @@ void SoundController::begin()
     xTaskCreatePinnedToCore(_loopTask, "_soundControllerTask", 4096, this, 1, NULL, 1);
 
     Serial.println("");
-    Serial.println("SoundController::begin complette ");
+    Serial.println("AudioClipController::begin complette ");
 }
 
-void SoundController::_soundControllerTask(void *param)
+void AudioClipController::_soundControllerTask(void *param)
 {
     Serial.println("_soundControllerTask runing.");
     bool isEnginStarted = false;
     bool isAddedQueueFlag = false;
-    auto *parent = static_cast<SoundController *>(param);
+    auto *parent = static_cast<AudioClipController *>(param);
 
     bool engineOn = parent->_engineOn;
     bool blinkerOn = parent->_blinkerOn;
@@ -138,7 +138,7 @@ void SoundController::_soundControllerTask(void *param)
          if (parent->_blinkerOn && !blinkerOn)
          {
              parent->stopAll();
-             Serial.println("SoundController::_soundControllerTask - START BLINKER");
+             Serial.println("AudioClipController::_soundControllerTask - START BLINKER");
              blinkerOn = true;
              engineRunPrev = engineOn;
              blinkerItem->play();
@@ -147,7 +147,7 @@ void SoundController::_soundControllerTask(void *param)
          if (parent->_engineOn && !engineOn)
          {
              Serial.println();
-             Serial.println("SoundController::_soundControllerTask - START ENGINE");
+             Serial.println("AudioClipController::_soundControllerTask - START ENGINE");
              engineOn = true;
              if (!engineRuningItem->isPlaying())
              {
@@ -189,9 +189,9 @@ void SoundController::_soundControllerTask(void *param)
     }
 }
 
-void SoundController::_loopTask(void *param)
+void AudioClipController::_loopTask(void *param)
 {
-    auto *parent = static_cast<SoundController *>(param);
+    auto *parent = static_cast<AudioClipController *>(param);
     Serial.println("_loopTask runing.");
     vTaskDelay(5000);
     while (true)
@@ -201,21 +201,21 @@ void SoundController::_loopTask(void *param)
     }
 }
 
-void SoundController::startEngine(const char *who)
+void AudioClipController::startEngine(const char *who)
 {
     if (!_engineOn)
         serialPrint("startEngine", who);
     _engineOn = true;
 }
 
-void SoundController::stopEngine(const char *who)
+void AudioClipController::stopEngine(const char *who)
 {
     if (_engineOn)
         serialPrint("stopEngine", who);
     _engineOn = false;
 }
 
-void SoundController::setEngineRpm(const char *who, uint16_t rpm)
+void AudioClipController::setEngineRpm(const char *who, uint16_t rpm)
 {
     if (_engineRpm != rpm)
         serialPrint("setEngineRpm", who);
@@ -223,7 +223,7 @@ void SoundController::setEngineRpm(const char *who, uint16_t rpm)
     _engineRpm = rpm;
 }
 
-void SoundController::startBlinker(const char *who)
+void AudioClipController::startBlinker(const char *who)
 {
     if (!_blinkerOn)
         serialPrint("startBlinker", who);
@@ -231,7 +231,7 @@ void SoundController::startBlinker(const char *who)
     _blinkerOn = true;
 }
 
-void SoundController::stopBlinker(const char *who)
+void AudioClipController::stopBlinker(const char *who)
 {
     if (_blinkerOn)
         serialPrint("stopBlinker", who);
@@ -239,24 +239,24 @@ void SoundController::stopBlinker(const char *who)
     _blinkerOn = false;
 }
 
-void SoundController::serialPrint(const char *procName, const char *who)
+void AudioClipController::serialPrint(const char *procName, const char *who)
 {
     Serial.println();
-    Serial.print(" >>> SoundController:");
+    Serial.print(" >>> AudioClipController:");
     Serial.print(procName);
     Serial.print(" called from: ");
     Serial.print(who);
     Serial.println();
 }
 
-void SoundController::playHorn(const char *who)
+void AudioClipController::playHorn(const char *who)
 {
-    Serial.println("SoundController::playHorn()");
+    Serial.println("AudioClipController::playHorn()");
     Serial.print(who);
     _hornOn = true;
 }
 
-void SoundController::loop()
+void AudioClipController::loop()
 {
     /*engineStartItem->loop();
     engineRuningItem->loop();
@@ -265,9 +265,9 @@ void SoundController::loop()
     AudioClip::loop(_clipList);
 }
 
-void SoundController::stopAll()
+void AudioClipController::stopAll()
 {
-    Serial.println("SoundController::stopAll()");
+    Serial.println("AudioClipController::stopAll()");
     /*engineRuningItem->stop();
     engineStartItem->stop();
     hornItem->stop();

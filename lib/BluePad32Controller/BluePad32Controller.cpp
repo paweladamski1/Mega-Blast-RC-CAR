@@ -5,7 +5,7 @@ bool BluePad32Controller::FirstDisconnectFlag = false;
 GamepadPtr BluePad32Controller::gamepad = nullptr;
 EDirection BluePad32Controller::Direction = EDirection::FORWARD;
 
-BluePad32Controller::BluePad32Controller(LightLedController &lights, SoundController &sound) : lights(lights), sound(sound)
+BluePad32Controller::BluePad32Controller(LightLedController &lights, AudioClipController &sound) : lights(lights), sound(sound)
 {
     ControlData = {0, 0, false};
     FirstConnectFlag = false;

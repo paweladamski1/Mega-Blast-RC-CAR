@@ -26,13 +26,13 @@ struct SControlData
 class BluePad32Controller
 {
 public:
-    BluePad32Controller(LightLedController &lights, SoundController &sound);
+    BluePad32Controller(LightLedController &lights, AudioClipController &sound);
     void begin();
     void loop(MotorController &motor);
 
 private:
     LightLedController &lights;
-    SoundController &sound;
+    AudioClipController &sound;
 
     static void onConnected(GamepadPtr gp);
     static void onDisconnected(GamepadPtr gp);

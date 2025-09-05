@@ -13,7 +13,7 @@ public:
         uint8_t pinRear,
         uint8_t pinReverse,
         uint8_t pinAux,
-        SoundController &sound
+        AudioClipController &sound
     );
 
     void begin();
@@ -26,7 +26,7 @@ public:
 private:
     bool _leftIndicatorOn;
     bool _rightIndicatorOn;
-    SoundController &sound;
+    AudioClipController &sound;
     TaskHandle_t taskHandle = NULL;
 
     uint8_t PIN_LEFT_INDICATOR;

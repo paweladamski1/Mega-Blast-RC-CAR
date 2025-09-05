@@ -7,7 +7,7 @@ LightLedController::LightLedController(
     uint8_t pinRear,
     uint8_t pinReverse,
     uint8_t pinAux,
-    SoundController &sound) : PIN_LEFT_INDICATOR(pinLeftIndicator),
+    AudioClipController &sound) : PIN_LEFT_INDICATOR(pinLeftIndicator),
                               PIN_RIGHT_INDICATOR(pinRightIndicator),
                               PIN_BRAKE(pinBrake),
                               PIN_MAIN_REAR(pinRear),

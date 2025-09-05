@@ -20,10 +20,10 @@ static const i2s_config_t i2s_config =
         .tx_desc_auto_clear = true,
         .fixed_mclk = -1};
 
-class SoundController
+class AudioClipController
 {
 public:
-    SoundController(int bclkPin, int lrclkPin, int dinPin,
+    AudioClipController(int bclkPin, int lrclkPin, int dinPin,
                     int _sd_sckPin, int _sd_misoPin, int _sd_mosiPin, int _sd_csPin);
 
     void begin();
