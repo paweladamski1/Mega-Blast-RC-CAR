@@ -64,6 +64,7 @@ void BluePad32Controller::loop(MotorController &motor)
 
     if (!isConnected() && _isConnectedState)
     {
+        //todo
         lights.setMainRearLight(false);
         sound.stopEngine("is not connect");
         motor.stop();
