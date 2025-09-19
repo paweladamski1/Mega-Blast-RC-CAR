@@ -5,6 +5,7 @@
 #include <iostream>
 #include <list>
 
+class AudioClipController;
 
 // How many bytes to read from wav file at a time
 #define NUM_BYTES_TO_READ_FROM_FILE 1024
@@ -24,7 +25,6 @@
  * @note Ensure the WAV files are in the correct format (e.g., 32-bit, mono, 44100Hz)
  *       and stored in a supported directory on the SD card.
  */
-
 
 struct WavHeader_Struct
 {
@@ -62,14 +62,10 @@ struct Wav_Struct
                                                // near the end of the file. i.e. we can't read beyond the file.
 };
 
-
-
 class AudioClip
 {
 public:
-    AudioClip(String FileName,
-               float volume = 0.6f,
-               bool repeat = false);
+    AudioClip(AudioClipController *c, const String &fileName, float volume = 0.6f, bool repeat = false);
     ~AudioClip();
 
     void play();
@@ -77,31 +73,35 @@ public:
 
     static void loop(std::list<AudioClip *> &items);
 
-    void (*onStart)() = nullptr;
-    void (*onEnd)() = nullptr;
+    // events
+    void (*onEnd)(AudioClip * sender, AudioClipController * controller) = nullptr;
 
+    // check states
     bool isPlaying() const;
+    float getPlayingProgress() const;
+
 
 private:
     Wav_Struct _wav;
-
+    bool _isChange;
     float _volume;
+    float _progressPercent;
 
     String _id;
 
     uint32_t _soundSize;
     uint16_t _wavIdx;
+    AudioClipController *_controller;
     bool _loadWavFileHeader(String FileName);
-    bool _validWavData(WavHeader_Struct* Wav);
-    void _dumpWAVHeader(WavHeader_Struct* Wav);
-
-
+    bool _validWavData(WavHeader_Struct *Wav);
+    void _dumpWAVHeader(WavHeader_Struct *Wav);
 
     bool _read();
+    void _onEndCall();
     static uint16_t Mix(byte *samples, std::list<AudioClip *> &items);
     static bool FillI2SBuffer(byte *Samples, uint16_t BytesInBuffer);
 
     void serialPrint(const char *data);                   // for debug
     void serialPrint(const char *data, const uint32_t n); // for debug
-    void serialPrint_fileHeader(const char* Data,uint8_t NumBytes);
+    void serialPrint_fileHeader(const char *Data, uint8_t NumBytes);
 };

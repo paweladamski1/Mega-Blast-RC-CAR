@@ -1,29 +1,13 @@
 #include "AudioClip.h"
 
-static bool isDebug = false;
-static void printDataWhereDebug(String data)
-{
-    if (!isDebug)
-        return;
-    Serial.print(" ");
-    Serial.print(data);
-}
-static void printDataWhereDebug(int data)
-{
-    if (!isDebug)
-        return;
-    Serial.print(data);
-    Serial.print(",");
-}
-
-AudioClip::AudioClip(
-    String fileName,
-    float volume,
-    bool repeat)
-    :
-
+AudioClip::AudioClip(AudioClipController *controller,
+                     const String &fileName,
+                     float volume,
+                     bool repeat)
+    : _controller(controller),
       _id(fileName),
-      _volume(volume)
+      _volume(volume),
+      _isChange(false)
 {
     _wav.Repeat = repeat;
     serialPrint(" AudioClip::AudioClip constructor ");
@@ -37,6 +21,8 @@ void AudioClip::play()
     if (!_wav.Playing)
     {
         _wav.Playing = true;
+        _progressPercent = 0;
+        _isChange = true;
         serialPrint(" play()");
     }
 }
@@ -46,6 +32,7 @@ void AudioClip::stop()
     if (_wav.Playing)
     {
         _wav.Playing = false;
+        _isChange = true;
         serialPrint(" stop()");
     }
 }
@@ -74,7 +61,6 @@ void AudioClip::loop(std::list<AudioClip *> &items)
 
     static byte Samples[NUM_BYTES_TO_READ_FROM_FILE];
     static uint16_t BytesReadFromFile;
-    isDebug = true;
     if (ReadingFile) // Read next chunk of data in from files
     {
         // Read data into the wavs own buffers
@@ -100,6 +86,11 @@ void AudioClip::loop(std::list<AudioClip *> &items)
 bool AudioClip::isPlaying() const
 {
     return _wav.Playing;
+}
+
+float AudioClip::getPlayingProgress() const
+{
+    return _progressPercent;
 }
 
 //--------------------------------------------------------------------------------------------------------------
@@ -242,6 +233,8 @@ bool AudioClip::_read()
     _wav.WavFile.read(_wav.Samples, _wav.LastNumBytesRead); // Read in the bytes from the file
     _wav.TotalBytesRead += _wav.LastNumBytesRead;           // Update the total bytes red in so far
 
+    _onEndCall();
+
     if (_wav.TotalBytesRead >= _wav.DataSize) // Have we read in all the data?
     {
         if (_wav.Repeat)
@@ -255,7 +248,7 @@ bool AudioClip::_read()
             _wav.WavFile.seek(44);   // Reset to start of wav data
             _wav.TotalBytesRead = 0; // Clear to no bytes read in so far
             _wav.Playing = false;    // Flag that wav has completed
-            if (onEnd) onEnd();
+
             serialPrint("sample end!");
             serialPrint("... ");
         }
@@ -268,6 +261,23 @@ bool AudioClip::_read()
         return false;
     }
     return _wav.Playing;
+}
+
+void AudioClip::_onEndCall()
+{
+    _progressPercent = (float)_wav.TotalBytesRead / (float)_wav.DataSize * 100.0f;
+
+    if (_progressPercent > 97.0f)
+    {
+        if (_isChange)
+        {
+            Serial.print(_progressPercent);
+            Serial.print("% ");
+            _isChange = false;
+            if (onEnd)
+                onEnd(this, _controller);
+        }
+    }
 }
 
 uint16_t AudioClip::Mix(byte *samples, std::list<AudioClip *> &items)
@@ -310,7 +320,7 @@ uint16_t AudioClip::Mix(byte *samples, std::list<AudioClip *> &items)
                 activeCount++;
             }
         }
-      
+
         if (mixedSample > 32767 || mixedSample < -32768)
         {
             mixedSample /= activeCount;
@@ -333,7 +343,6 @@ uint16_t AudioClip::Mix(byte *samples, std::list<AudioClip *> &items)
         i += 2;
     }
 
-    
     MaxBytesInBuffer = 0;
     for (AudioClip *item : items)
         if (item->_wav.LastNumBytesRead > MaxBytesInBuffer)
@@ -345,7 +354,6 @@ uint16_t AudioClip::Mix(byte *samples, std::list<AudioClip *> &items)
     //  We now alter the data according to the volume control
     for (i = 0; i < MaxBytesInBuffer; i += 2)
         *((int16_t *)(samples + i)) = (*((int16_t *)(samples + i))) * Volume;
-    
 
     return MaxBytesInBuffer;
 }
