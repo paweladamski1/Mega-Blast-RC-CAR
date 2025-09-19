@@ -9,7 +9,7 @@ BluePad32Controller::BluePad32Controller(LightLedController &lights, AudioClipCo
 {
     ControlData = {0, 0, false};
     FirstConnectFlag = false;
-    _isConnectedState=true;
+    _isConnectedState = true;
 }
 
 void BluePad32Controller::begin()
@@ -43,7 +43,7 @@ void BluePad32Controller::onConnected(GamepadPtr gp)
         Serial.println("Controller connected");
         Serial.print(gp->getModelName());
         gamepad = gp;
-        FirstConnectFlag = false;        
+        FirstConnectFlag = false;
     }
 }
 
@@ -76,7 +76,7 @@ void BluePad32Controller::loop(MotorController &motor)
         gamepad->playDualRumble(
             0,   // delayedStartMs
             100, // durationMs
-            0, // weakMagnitude
+            0,   // weakMagnitude
             255  // strongMagnitude
         );
         Serial.println("motor.stop");
@@ -94,29 +94,41 @@ void BluePad32Controller::loop(MotorController &motor)
 
     if (!FirstConnectFlag)
     {
-        FirstConnectFlag = true;        
+        FirstConnectFlag = true;
         lights.setMainRearLight(true);
         lights.setIndicator(false, false);
         sound.startEngine(" Controller connected ");
         vTaskDelay(3000);
-        
 
         gamepad->setColorLED(255, 255, 255);
         gamepad->playDualRumble(10, 500, 128, 255);
         motor.startEngine();
     }
 
-    /*if (isArrowRight())
+    static bool emergencyLights = false,
+                auxLights = false,
+                prevYState = false,
+                prevBState = false
+                ;
+
+    if (!gamepad->y() && prevYState)
     {
-        Serial.print(" Arr. Right ");                
+        emergencyLights = !emergencyLights;
+        Serial.print(" Triangle ");
     }
-    if (isArrowLeft())
+
+    if (!gamepad->b() && prevBState)
     {
-        Serial.print(" Arr. Left ");
+        auxLights = !auxLights;
+        Serial.print(" Circle ");
+    }
+
+    lights.setAuxLight(auxLights);
+
+    if (emergencyLights)
+        lights.setIndicator(true, true);
+    else
         lights.setIndicator(isArrowLeft(), isArrowRight());
-    }*/
-   
-    lights.setIndicator(isArrowLeft(), isArrowRight());
 
     if (isArrowUp())
         Serial.print(" Arr. Up ");
@@ -129,14 +141,10 @@ void BluePad32Controller::loop(MotorController &motor)
         sound.playHorn("BluePad32Controller::loop");
     }
 
-    if (gamepad->b())
-        Serial.print(" Circle ");
+    
 
     if (gamepad->x())
         Serial.print(" Square ");
-
-    if (gamepad->y())
-        Serial.print(" Triangle ");
 
     if (isR1())
         Serial.print(" r1 ");
@@ -146,8 +154,9 @@ void BluePad32Controller::loop(MotorController &motor)
 
     updateControlData();
     motor.drive(ControlData.momentum, ControlData.steering, ControlData.direction);
+    prevYState = gamepad->y();
+    prevBState = gamepad->b();
 }
-
 
 void BluePad32Controller::updateControlData()
 {
@@ -175,7 +184,7 @@ void BluePad32Controller::updateControlData()
     }
 
     if (ControlData.momentum >= throttle && !isBrake) // free-rolling simulation
-    {        
+    {
         if (_s_loop_cnt % 2 == 0 && ControlData.momentum > 0)
             ControlData.momentum--;
     }
@@ -185,30 +194,29 @@ void BluePad32Controller::updateControlData()
     }
     else if (throttle > ControlData.momentum)
     {
-        onAcceleratingAction(throttle);        
+        onAcceleratingAction(throttle);
     }
     if (ControlData.momentum == 0)
     {
-       // Serial.print(" momentium:  ");
-       // Serial.print(ControlData.momentum);
-       // Serial.print("  ");
+        // Serial.print(" momentium:  ");
+        // Serial.print(ControlData.momentum);
+        // Serial.print("  ");
 
         onIdleAction();
     }
     else
     {
-       // Serial.print(" momentium:  ");
-       // Serial.print(ControlData.momentum);
-       // Serial.print("  ");
-       // onCoastingAction(Direction);
+        // Serial.print(" momentium:  ");
+        // Serial.print(ControlData.momentum);
+        // Serial.print("  ");
+        // onCoastingAction(Direction);
     }
+    lights.setBrakeLight(isBrake);
     ControlData.momentum = constrain(ControlData.momentum, 0, 255);
     ControlData.steering = steering;
     ControlData.brake = isBrake;
     ControlData.direction = Direction;
 }
-
-
 
 void BluePad32Controller::onAcceleratingAction(int throttle)
 {
@@ -221,8 +229,7 @@ void BluePad32Controller::onBrakingAction(int brakeForce)
 {
     Serial.print(" braking ");
     Serial.print(brakeForce);
-    Serial.print(" ");
-
+    Serial.print(" ");    
     if (ControlData.momentum > 0)
     {
         ControlData.momentum -= map(brakeForce, 0, 1023, 0, 50);
@@ -233,8 +240,6 @@ void BluePad32Controller::onBrakingAction(int brakeForce)
     if (brakeForce > 1000)
         ControlData.momentum = 0;
 }
-
-
 
 void BluePad32Controller::onIdleAction()
 {
