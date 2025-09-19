@@ -38,15 +38,14 @@ public:
     void playHorn(const char *who);
 
     void loop();
-
-    void stopAll();
+ 
 
 private:
     int _bclkPin, _lrclkPin, _dinPin;
     int _sd_sckPin, _sd_misoPin, _sd_mosiPin, _sd_csPin;
 
-    volatile bool _engineOn;
-    volatile bool _blinkerOn;
+    volatile bool _engineOn_Req;
+    volatile bool _blinkerOn_Req;
     volatile bool _hornOn;
 
     volatile uint16_t _engineRpm;
@@ -55,7 +54,7 @@ private:
     AudioClip *engineStartItem;
     AudioClip *engineRuningItem;
     //AudioClip *engineStopItem;
-    AudioClip *blinkerRunItem;
+    AudioClip *blinkerItem;
     //AudioClip *blinkerEndItem; 
     //AudioClip *blinkerStartItem;
     AudioClip *hornItem;

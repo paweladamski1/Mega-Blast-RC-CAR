@@ -2,9 +2,9 @@
 #include <algorithm>
 
 AudioClipController::AudioClipController(int bclkPin, int lrclkPin, int dinPin,
-                                 int _sd_sckPin, int _sd_misoPin, int _sd_mosiPin, int _sd_csPin)
+                                         int _sd_sckPin, int _sd_misoPin, int _sd_mosiPin, int _sd_csPin)
     : _bclkPin(bclkPin), _lrclkPin(lrclkPin), _dinPin(dinPin),
-      _engineOn(false), _blinkerOn(false), _hornOn(false), _engineRpm(0),
+      _engineOn_Req(false), _blinkerOn_Req(false), _hornOn(false), _engineRpm(0),
       _sd_sckPin(_sd_sckPin), _sd_misoPin(_sd_misoPin), _sd_mosiPin(_sd_mosiPin), _sd_csPin(_sd_csPin)
 {
 }
@@ -33,38 +33,34 @@ void AudioClipController::begin()
     i2s_set_pin(I2S_NUM_0, &pin_config);
 
     Serial.println("");
-    musicItem = new AudioClip("/music1.wav", 0.2f, false);
-   // blinkerStartItem = new AudioClip("/blinker_start.wav", 1.0f, true);
-    blinkerRunItem   = new AudioClip("/blinker_runing.wav", 1.0f, true);
-   // blinkerEndItem   = new AudioClip("/blinker_end.wav", 1.0f, true);
-    
-    
-    int choice=random(0, 2);
-    const String horn_filename[2]= {"/horn1.wav", "/horn2.wav"};
-    hornItem =  new AudioClip(horn_filename[choice], 1.0f, false); 
-                            
-    
-    engineStartItem = new AudioClip("/engine_start1.wav", 0.2f, false);
-    engineRuningItem = new AudioClip("/engine_runing1.wav", 0.2f, true);
-    //engineStopItem = new AudioClip("/engine_stop1.wav", 0.2f, true);
+    musicItem = new AudioClip(this, "/music1.wav", 0.5f, false);
+    // blinkerStartItem = new AudioClip(this, "/blinker_start.wav", 1.0f, true);
+    blinkerItem = new AudioClip(this, "/blinker_runing.wav", 1.0f, true);
+    // blinkerEndItem   = new AudioClip(this, "/blinker_end.wav", 1.0f, true);
 
-    
+    int choice = random(0, 2);
+    const String horn_filename[2] = {"/horn1.wav", "/horn2.wav"};
+    hornItem = new AudioClip(this, horn_filename[choice], 1.0f, false);
+
+    engineStartItem = new AudioClip(this, "/engine_start1.wav", 1.0f, false);
+    engineRuningItem = new AudioClip(this, "/engine_runing1.wav", 0.4f, true);
+    // engineStopItem = new AudioClip(this, "/engine_stop1.wav", 0.2f, true);
 
     _clipList.push_back(musicItem);
     _clipList.push_back(engineRuningItem);
-    _clipList.push_back(engineStartItem);    
+    _clipList.push_back(engineStartItem);
     //_clipList.push_back(engineStopItem);
-    
-   // _clipList.push_back(blinkerStartItem);
-    _clipList.push_back(blinkerRunItem);
-   // _clipList.push_back(blinkerEndItem);
+
+    // _clipList.push_back(blinkerStartItem);
+    _clipList.push_back(blinkerItem);
+    // _clipList.push_back(blinkerEndItem);
     _clipList.push_back(hornItem);
 
     vTaskDelay(100);
 
     Serial.println("");
     xTaskCreatePinnedToCore(_soundControllerTask, "_soundControllerTask", 4096, this, 1, NULL, 1);
-    xTaskCreatePinnedToCore(_loopTask, "_soundControllerTask", 4096, this, 1, NULL, 1);
+    xTaskCreatePinnedToCore(_loopTask, "_loopTask", 4096, this, 1, NULL, 1);
 
     Serial.println("");
     Serial.println("AudioClipController::begin complette ");
@@ -77,115 +73,71 @@ void AudioClipController::_soundControllerTask(void *param)
     bool isAddedQueueFlag = false;
     auto *parent = static_cast<AudioClipController *>(param);
 
-    bool engineOn = parent->_engineOn;
-    bool blinkerOn = parent->_blinkerOn;
+    bool engineOn_State = parent->_engineOn_Req;
+    bool blinkerOn_State = parent->_blinkerOn_Req;
     int engineRpm = parent->_engineRpm;
-    bool engineRunPrev = false;
-    bool engineStarted = false;
-    Serial.println("_soundControllerTask play.");
-    parent->musicItem->play();
 
-    int test_i = 10;
-    int test_y = 20;
+    AudioClip *hornItem = parent->hornItem;
+    AudioClip *blinkerItem = parent->blinkerItem;
+    AudioClip *engineRuningItem = parent->engineRuningItem;
+    AudioClip *engineStartItem = parent->engineStartItem;
+
+    
+    Serial.println("_soundControllerTask start control.");
+
     while (true)
     {
-        test_i--;
-        test_y--;
-
-        if (test_i == 0)
+        if (parent->_hornOn)
         {
-            Serial.println("");
-            Serial.println("");
-            Serial.println("_soundControllerTask blinker on!");
-            parent->blinkerRunItem->play();
-            test_i=100;
+            hornItem->play();
+
+            while (hornItem->isPlaying())
+                vTaskDelay(10);
+            parent->_hornOn = false;
         }
 
-        if (test_y == 0)
+        if (parent->_blinkerOn_Req && !blinkerOn_State)
         {
-            Serial.println("");
-            Serial.println("");
-            Serial.println("_soundControllerTask horn_train on!");
-            parent->hornItem->play();
-            test_y=80;
+            Serial.println("AudioClipController::_soundControllerTask - START BLINKER");
+            blinkerOn_State = true;
+            blinkerItem->play();
         }
 
-        if (!parent->musicItem->isPlaying())
+        if (parent->_engineOn_Req && !engineOn_State)
         {
-            Serial.println("");
-            Serial.println("");
-            Serial.println("_soundControllerTask wait 10s");
-            vTaskDelay(10000);
-            parent->musicItem->play();
+            Serial.println();
+            Serial.println("AudioClipController::_soundControllerTask - START ENGINE");
+            engineOn_State = true;
+            if (!engineRuningItem->isPlaying())
+            {
+                parent->engineStartItem->play();
+                parent->engineStartItem->onEnd = [](AudioClip*sender, AudioClipController *controller)
+                {
+                    Serial.println("");                      
+                    controller->engineRuningItem->play();
+                };
+            }
         }
 
-        /*if (parent->_hornOn)
-         {
-             parent->stopAll();
-             playNext = NULL;
-             if (parent->_blinkerOn)
-                 playNext = blinkerItem;
-             else if (parent->_engineOn)
-                 playNext = engineRuningItem;
+        if (!parent->_engineOn_Req && engineOn_State)
+        {
+            engineOn_State = parent->_engineOn_Req;
+            engineRuningItem->stop();
+        }
 
-             hornItem->play(playNext);
+        if (!parent->_blinkerOn_Req && blinkerOn_State)
+        {
+            blinkerOn_State = parent->_blinkerOn_Req;
+            blinkerItem->stop();
+        }
 
-             while (hornItem->isPlaying())
-                 vTaskDelay(10);
-             parent->_hornOn = false;
-         }
-
-         if (parent->_blinkerOn && !blinkerOn)
-         {
-             parent->stopAll();
-             Serial.println("AudioClipController::_soundControllerTask - START BLINKER");
-             blinkerOn = true;
-             engineRunPrev = engineOn;
-             blinkerItem->play();
-         }
-
-         if (parent->_engineOn && !engineOn)
-         {
-             Serial.println();
-             Serial.println("AudioClipController::_soundControllerTask - START ENGINE");
-             engineOn = true;
-             if (!engineRuningItem->isPlaying())
-             {
-                 parent->stopAll();
-                 parent->_blinkerOn = false;
-                 vTaskDelay(50);
-                 if (!engineStarted)
-                 {
-                     engineStarted = true;
-                     engineRuningItem->loadData();
-                     engineStartItem->play(engineRuningItem);
-                 }
-             }
-         }
-
-         if (!parent->_engineOn && engineOn)
-         {
-             engineOn = false;
-             engineRunPrev = false;
-             engineStarted = false;
-             engineRuningItem->stop();
-         }
-
-         if (!parent->_blinkerOn && blinkerOn)
-         {
-             blinkerOn = false;
-             blinkerItem->stop();
-             vTaskDelay(50);
-             if (engineRunPrev)
-                 engineRuningItem->play();
-         }
-
-         if (engineRpm != parent->_engineRpm)
-         {
-             engineRuningItem->setRate(parent->_engineRpm);
-             engineRpm = parent->_engineRpm;
-         }*/
-        vTaskDelay(1000);
+        if (engineRpm != parent->_engineRpm)
+        {
+            //engineRuningItem->setSpeed(parent->_engineRpm);
+            //engineRpm = parent->_engineRpm;
+            //todo
+        }
+        vTaskDelay(500);
     }
 }
 
@@ -203,16 +155,16 @@ void AudioClipController::_loopTask(void *param)
 
 void AudioClipController::startEngine(const char *who)
 {
-    if (!_engineOn)
+    if (!_engineOn_Req)
         serialPrint("startEngine", who);
-    _engineOn = true;
+    _engineOn_Req = true;
 }
 
 void AudioClipController::stopEngine(const char *who)
 {
-    if (_engineOn)
+    if (_engineOn_Req)
         serialPrint("stopEngine", who);
-    _engineOn = false;
+    _engineOn_Req = false;
 }
 
 void AudioClipController::setEngineRpm(const char *who, uint16_t rpm)
@@ -225,18 +177,18 @@ void AudioClipController::setEngineRpm(const char *who, uint16_t rpm)
 
 void AudioClipController::startBlinker(const char *who)
 {
-    if (!_blinkerOn)
+    if (!_blinkerOn_Req)
         serialPrint("startBlinker", who);
 
-    _blinkerOn = true;
+    _blinkerOn_Req = true;
 }
 
 void AudioClipController::stopBlinker(const char *who)
 {
-    if (_blinkerOn)
+    if (_blinkerOn_Req)
         serialPrint("stopBlinker", who);
 
-    _blinkerOn = false;
+    _blinkerOn_Req = false;
 }
 
 void AudioClipController::serialPrint(const char *procName, const char *who)
@@ -258,20 +210,5 @@ void AudioClipController::playHorn(const char *who)
 
 void AudioClipController::loop()
 {
-    /*engineStartItem->loop();
-    engineRuningItem->loop();
-    hornItem->loop();
-    blinkerItem->loop();*/
     AudioClip::loop(_clipList);
-}
-
-void AudioClipController::stopAll()
-{
-    Serial.println("AudioClipController::stopAll()");
-    /*engineRuningItem->stop();
-    engineStartItem->stop();
-    hornItem->stop();
-    blinkerItem->stop();*/
-    musicItem->stop();
-    vTaskDelay(100);
 }
