@@ -1,4 +1,5 @@
 #include "AudioClip.h"
+#include "AudioClipController.h"
 
 AudioClip::AudioClip(AudioClipController *controller,
                      const String &fileName,
@@ -7,85 +8,102 @@ AudioClip::AudioClip(AudioClipController *controller,
     : _controller(controller),
       _id(fileName),
       _volume(volume),
-      _isChange(false)
+      _isChange(false),
+      _fileName(fileName)
+
 {
-    _wav.Repeat = repeat;
+    Repeat = repeat;
+    _isPlaying = false;
     serialPrint(" AudioClip::AudioClip constructor ");
-    if (!_loadWavFileHeader(fileName))
-        while (true)
-            ;
+
+    if (repeat)
+        _load();
 }
 
 void AudioClip::play()
 {
-    if (!_wav.Playing)
+    if (!_isPlaying)
     {
-        _wav.Playing = true;
+        if (!_load())
+        {
+            serialPrint(" can't load file");
+            return;
+        }
+
+        if (_controller)
+            _controller->addClip(this);
+
+        _isPlaying = true;
         _progressPercent = 0;
         _isChange = true;
         serialPrint(" play()");
     }
 }
 
-void AudioClip::stop()
+bool AudioClip::read()
 {
-    if (_wav.Playing)
+    if (!_wavFile)
+        return false;
+
+    if (!_isPlaying)
+        return false;
+
+    if (_totalBytesRead + NUM_BYTES_TO_READ_FROM_FILE > _wavDataSize) // If next read will go past the end then adjust the
+        _lastNumBytesRead = _wavDataSize - _totalBytesRead;           // amount to read to whatever is remaining to read
+    else
+        _lastNumBytesRead = NUM_BYTES_TO_READ_FROM_FILE; // Default to max to read
+
+    _wavFile.read(_samplesArr, _lastNumBytesRead); // Read in the bytes from the file
+    _totalBytesRead += _lastNumBytesRead;          // Update the total bytes red in so far
+
+    _onEndCall();
+
+    if (_totalBytesRead >= _wavDataSize) // Have we read in all the data?
     {
-        _wav.Playing = false;
-        _isChange = true;
-        serialPrint(" stop()");
+        if (Repeat)
+        {
+            serialPrint("Repeat!");
+            _wavFile.seek(44);   // Reset to start of wav data
+            _totalBytesRead = 0; // Clear to no bytes read in so far
+        }
+        else
+        {
+            stop();
+        }
     }
+    if (_lastNumBytesRead == 0)
+        return false;
+
+    if (!_samplesArr)
+    {
+        Serial.println("ERROR: Samples is null in _read()");
+        return false;
+    }
+    return _isPlaying;
 }
 
-// public static
-void AudioClip::loop(std::list<AudioClip *> &items)
+void AudioClip::stop()
 {
-    bool _noPlaying = true;
-
-    for (AudioClip *item : items)
+    if (_isPlaying)
     {
-        if (item->isPlaying())
+        serialPrint(" stop()");
+        _isPlaying = false;
+        _isChange = true;
+        if (!Repeat)
         {
-            _noPlaying = false;
-            break;
+            serialPrint("close file ");
+            _wavFile.close();
+            _controller->removeClip(this);
         }
     }
-    if (_noPlaying)
-    {
-        vTaskDelay(1000);
-        return;
-    }
-
-    static bool ReadingFile = true;
-    static bool IsRead = true;
-
-    static byte Samples[NUM_BYTES_TO_READ_FROM_FILE];
-    static uint16_t BytesReadFromFile;
-    if (ReadingFile) // Read next chunk of data in from files
-    {
-        // Read data into the wavs own buffers
-        IsRead = false;
-        for (AudioClip *item : items)
-        {
-            if (item->_read())
-                IsRead = true;
-        }
-        if (!IsRead)
-        {
-            Serial.print(" AudioClip::loop -- no Playing!");
-            vTaskDelay(1000);
-            return;
-        }
-        BytesReadFromFile = Mix(Samples, items); // Mix the samples together and store in the samples buffer
-        ReadingFile = false;                     // Switch to sending the buffer to the I2S
-    }
-    else
-        ReadingFile = FillI2SBuffer(Samples, BytesReadFromFile); // We keep calling this routine until it returns true, at which point
 }
 
 bool AudioClip::isPlaying() const
 {
-    return _wav.Playing;
+    if (_wavFile)
+        return _isPlaying;
+    else
+        return false;
 }
 
 float AudioClip::getPlayingProgress() const
@@ -93,33 +111,89 @@ float AudioClip::getPlayingProgress() const
     return _progressPercent;
 }
 
+void AudioClip::resetIdx()
+{
+    _Idx = 0;
+}
+
+uint16_t AudioClip::getIdx() const
+{
+    return _Idx;
+}
+
+bool AudioClip::isBufferNotEmpty() const
+{
+    return _Idx < _lastNumBytesRead;
+}
+
+bool AudioClip::isReadyToMix() const
+{
+    return _isPlaying && _samplesArr != nullptr && isBufferNotEmpty();
+}
+
+int16_t AudioClip::getNextSample()
+{    
+    int16_t sample = *((int16_t *)(_samplesArr + _Idx));
+    _Idx += 2;
+    return static_cast<int16_t>(sample * _volume);
+}
+
+uint16_t AudioClip::getBytesInBuffer() const
+{
+    return _lastNumBytesRead;
+}
+
 //--------------------------------------------------------------------------------------------------------------
 // PRIVATE
-bool AudioClip::_loadWavFileHeader(String FileName)
+bool AudioClip::_load()
 {
+    serialPrint("_load()");
+
+    if (_wavFile)
+    {
+        serialPrint("Could not open");
+        Serial.print(" - file already open");
+        return true;
+    }
     // Load wav file, if all goes ok returns true else false
     WavHeader_Struct WavHeader;
 
-    _wav.WavFile = SD.open(FileName); // Open the wav file
-    if (_wav.WavFile == false)
+    _wavFile = SD.open(_fileName); // Open the wav file
+
+    if (!_wavFile)
     {
         Serial.print("Could not open :");
-        Serial.println(FileName);
+        Serial.println(_fileName);
         return false;
     }
-    else
+
+    _wavFile.read((byte *)&WavHeader, 44); // Read in the WAV header, which is first 44 bytes of the file.
+                                           // We have to typecast to bytes for the "read" function
+    if (_validWavData(&WavHeader))
     {
-        _wav.WavFile.read((byte *)&WavHeader, 44); // Read in the WAV header, which is first 44 bytes of the file.
-                                                   // We have to typecast to bytes for the "read" function
-        if (_validWavData(&WavHeader))
+        _dumpWAVHeader(&WavHeader); // Dump the header data to serial, optional!
+        Serial.println();
+        _wavDataSize = WavHeader.DataSize; // Copy the data size into our wav structure
+        return true;
+    }
+    serialPrint(".. fail");
+    return false;
+}
+
+void AudioClip::_onEndCall()
+{
+    _progressPercent = (float)_totalBytesRead / (float)_wavDataSize * 100.0f;
+
+    if (_progressPercent > 97.0f)
+    {
+        if (_isChange)
         {
-            _dumpWAVHeader(&WavHeader); // Dump the header data to serial, optional!
-            Serial.println();
-            _wav.DataSize = WavHeader.DataSize; // Copy the data size into our wav structure
-            return true;
+            Serial.print(_progressPercent);
+            Serial.print("% ");
+            _isChange = false;
+            if (onEnd)
+                onEnd(this, _controller);
         }
-        else
-            return false;
     }
 }
 
@@ -218,173 +292,6 @@ void AudioClip::_dumpWAVHeader(WavHeader_Struct *Wav)
     Serial.println(Wav->BitsPerSample);
     Serial.print("data Size :");
     Serial.println(Wav->DataSize);
-}
-
-bool AudioClip::_read()
-{
-    if (!_wav.Playing)
-        return false;
-
-    if (_wav.TotalBytesRead + NUM_BYTES_TO_READ_FROM_FILE > _wav.DataSize) // If next read will go past the end then adjust the
-        _wav.LastNumBytesRead = _wav.DataSize - _wav.TotalBytesRead;       // amount to read to whatever is remaining to read
-    else
-        _wav.LastNumBytesRead = NUM_BYTES_TO_READ_FROM_FILE; // Default to max to read
-
-    _wav.WavFile.read(_wav.Samples, _wav.LastNumBytesRead); // Read in the bytes from the file
-    _wav.TotalBytesRead += _wav.LastNumBytesRead;           // Update the total bytes red in so far
-
-    _onEndCall();
-
-    if (_wav.TotalBytesRead >= _wav.DataSize) // Have we read in all the data?
-    {
-        if (_wav.Repeat)
-        {
-            serialPrint("Repeat!");
-            _wav.WavFile.seek(44);   // Reset to start of wav data
-            _wav.TotalBytesRead = 0; // Clear to no bytes read in so far
-        }
-        else
-        {
-            _wav.WavFile.seek(44);   // Reset to start of wav data
-            _wav.TotalBytesRead = 0; // Clear to no bytes read in so far
-            _wav.Playing = false;    // Flag that wav has completed
-
-            serialPrint("sample end!");
-            serialPrint("... ");
-        }
-    }
-    if (_wav.LastNumBytesRead == 0)
-        return false;
-    if (!_wav.Samples)
-    {
-        Serial.println("ERROR: _wav.Samples is null in _read()");
-        return false;
-    }
-    return _wav.Playing;
-}
-
-void AudioClip::_onEndCall()
-{
-    _progressPercent = (float)_wav.TotalBytesRead / (float)_wav.DataSize * 100.0f;
-
-    if (_progressPercent > 97.0f)
-    {
-        if (_isChange)
-        {
-            Serial.print(_progressPercent);
-            Serial.print("% ");
-            _isChange = false;
-            if (onEnd)
-                onEnd(this, _controller);
-        }
-    }
-}
-
-uint16_t AudioClip::Mix(byte *samples, std::list<AudioClip *> &items)
-{
-    // Mix all playing wavs together, returns the max bytes that are in the buffer, usually this would be the full buffer but
-    // in rare cases wavs may be close to the end of the file and thus not fill the entire buffer
-    int32_t mixedSample;       // The mixed sample
-    uint16_t i;                // index into main samples buffer
-    uint16_t MaxBytesInBuffer; // Max bytes of data in buffer, most of time buffer will be full
-    const float Volume = 0.3;
-    i = 0;
-
-    for (AudioClip *item : items)
-        item->_wavIdx = 0;
-
-    bool runing = true;
-
-    while (runing)
-    {
-        runing = false;
-
-        for (AudioClip *item : items)
-            if (item->_wavIdx < item->_wav.LastNumBytesRead)
-            {
-                runing = true;
-                break;
-            }
-        if (!runing)
-            break;
-
-        mixedSample = 0;
-        int activeCount = 0;
-        for (AudioClip *item : items)
-        {
-
-            if (item->_wav.Playing && item->_wav.Samples != nullptr && item->_wavIdx < item->_wav.LastNumBytesRead)
-            {
-                mixedSample += *((int16_t *)(item->_wav.Samples + item->_wavIdx)) * item->_volume;
-                item->_wavIdx += 2;
-                activeCount++;
-            }
-        }
-
-        if (mixedSample > 32767 || mixedSample < -32768)
-        {
-            mixedSample /= activeCount;
-        }
-
-        if (mixedSample > 32767)
-            mixedSample = 32767;
-        if (mixedSample < -32768)
-            mixedSample = -32768;
-
-        if (i + 1 < NUM_BYTES_TO_READ_FROM_FILE)
-        {
-            *((int16_t *)(samples + i)) = (int16_t)mixedSample;
-        }
-        else
-        {
-            break;
-        }
-
-        i += 2;
-    }
-
-    MaxBytesInBuffer = 0;
-    for (AudioClip *item : items)
-        if (item->_wav.LastNumBytesRead > MaxBytesInBuffer)
-            MaxBytesInBuffer = item->_wav.LastNumBytesRead;
-
-    if (MaxBytesInBuffer + 2 > NUM_BYTES_TO_READ_FROM_FILE)
-        MaxBytesInBuffer = NUM_BYTES_TO_READ_FROM_FILE - 2;
-
-    //  We now alter the data according to the volume control
-    for (i = 0; i < MaxBytesInBuffer; i += 2)
-        *((int16_t *)(samples + i)) = (*((int16_t *)(samples + i))) * Volume;
-
-    return MaxBytesInBuffer;
-}
-
-bool AudioClip::FillI2SBuffer(byte *Samples, uint16_t BytesInBuffer)
-{
-    // Writes bytes to buffer, returns true if all bytes sent else false, keeps track itself of how many left
-    // to write, so just keep calling this routine until returns true to know they've all been written, then
-    // you can re-fill the buffer
-
-    size_t BytesWritten;           // Returned by the I2S write routine,
-    static uint16_t BufferIdx = 0; // Current pos of buffer to output next
-    uint8_t *DataPtr;              // Point to next data to send to I2S
-    uint16_t BytesToSend;          // Number of bytes to send to I2S
-
-    // To make the code eaier to understand I'm using to variables to some calculations, normally I'd write this calcs
-    // directly into the line of code where they belong, but this make it easier to understand what's happening
-
-    DataPtr = Samples + BufferIdx;                                            // Set address to next byte in buffer to send out
-    BytesToSend = BytesInBuffer - BufferIdx;                                  // This is amount to send (total less what we've already sent)
-    i2s_write(I2S_NUM_0, DataPtr, BytesToSend, &BytesWritten, portMAX_DELAY); // Send the bytes, wait 1 RTOS tick to complete
-    BufferIdx += BytesWritten;                                                // increasue by number of bytes actually written
-
-    if (BufferIdx >= BytesInBuffer)
-    {
-        // sent out all bytes in buffer, reset and return true to indicate this
-        BufferIdx = 0;
-        return true;
-    }
-    else
-        return false; // Still more data to send to I2S so return false to indicate this
 }
 
 void AudioClip::serialPrint(const char *data)

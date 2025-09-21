@@ -1,4 +1,7 @@
 #pragma once
+#ifndef AUDIO_CLIP_H
+#define AUDIO_CLIP_H
+
 #include <Arduino.h>
 #include "SD.h"
 #include "driver/i2s.h"
@@ -46,32 +49,19 @@ struct WavHeader_Struct
     // Data Section
     char DataSectionID[4]; // The letters "data"
     uint32_t DataSize;     // Size of the data that follows
-};
-
-// The data for one particular wav file
-struct Wav_Struct
-{
-    File WavFile;                              // Object for accessing the opened wavfile
-    uint32_t DataSize;                         // Size of wav file data
-    bool Playing = false;                      // Is file playing
-    bool Repeat;                               // If true, when wav ends, it will auto start again
-    byte Samples[NUM_BYTES_TO_READ_FROM_FILE]; // Buffer to store data red from file
-    uint32_t TotalBytesRead = 0;               // Number of bytes read from file so far
-    uint16_t LastNumBytesRead;                 // Num bytes actually read from the wav file which will either be
-                                               // NUM_BYTES_TO_READ_FROM_FILE or less than this if we are very
-                                               // near the end of the file. i.e. we can't read beyond the file.
-};
+}; 
 
 class AudioClip
 {
+       // friend class AudioClipController; // AudioClipController can access private stuff
 public:
     AudioClip(AudioClipController *c, const String &fileName, float volume = 0.6f, bool repeat = false);
     ~AudioClip();
 
     void play();
     void stop();
-
-    static void loop(std::list<AudioClip *> &items);
+    bool read();
+    
 
     // events
     void (*onEnd)(AudioClip * sender, AudioClipController * controller) = nullptr;
@@ -79,29 +69,47 @@ public:
     // check states
     bool isPlaying() const;
     float getPlayingProgress() const;
+    bool Repeat;                               // If true, when wav ends, it will auto start again
 
+    // play process
+    void resetIdx();
+    uint16_t getIdx() const;
+    
+    bool isBufferNotEmpty() const;
+    bool isReadyToMix() const;
+    int16_t getNextSample();
+    uint16_t getBytesInBuffer() const;
 
 private:
-    Wav_Struct _wav;
+    
+    /* WAV file struct data */
+    File _wavFile;                              // Object for accessing the opened wavfile
+    uint32_t _wavDataSize;                      // Size of wav file data
+    bool _isPlaying = false;                    // Is file playing
+    
+    byte _samplesArr[NUM_BYTES_TO_READ_FROM_FILE]; // Buffer to store data red from file
+    uint32_t _totalBytesRead = 0;               // Number of bytes read from file so far
+    uint16_t _lastNumBytesRead;                 // Num bytes actually read from the wav file which will either be
+                                               // NUM_BYTES_TO_READ_FROM_FILE or less than this if we are very
+                                               // near the end of the file. i.e. we can't read beyond the file.
     bool _isChange;
-    float _volume;
-    float _progressPercent;
-
-    String _id;
-
+    float _volume, _progressPercent;
+    String _id, _fileName;
     uint32_t _soundSize;
-    uint16_t _wavIdx;
+    uint16_t _Idx;
     AudioClipController *_controller;
-    bool _loadWavFileHeader(String FileName);
+    
+    bool _load();
+
+    
     bool _validWavData(WavHeader_Struct *Wav);
     void _dumpWAVHeader(WavHeader_Struct *Wav);
 
-    bool _read();
-    void _onEndCall();
-    static uint16_t Mix(byte *samples, std::list<AudioClip *> &items);
-    static bool FillI2SBuffer(byte *Samples, uint16_t BytesInBuffer);
-
+    
+    void _onEndCall();    
     void serialPrint(const char *data);                   // for debug
     void serialPrint(const char *data, const uint32_t n); // for debug
     void serialPrint_fileHeader(const char *Data, uint8_t NumBytes);
 };
+
+#endif

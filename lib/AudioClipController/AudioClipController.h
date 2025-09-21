@@ -1,10 +1,16 @@
-#ifndef SOUND_CONTROLLER_H
-#define SOUND_CONTROLLER_H
+#pragma once
+#ifndef AUDIO_CLIP_CONTROLLER_H
+#define AUDIO_CLIP_CONTROLLER_H
 
 #include <Arduino.h>
 #include "SD.h"
 #include "driver/i2s.h"
-#include "AudioClip.h"
+#include <iostream>
+#include <list>
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+
+class AudioClip;
 
 static const i2s_config_t i2s_config =
     {
@@ -22,9 +28,11 @@ static const i2s_config_t i2s_config =
 
 class AudioClipController
 {
+    friend class AudioClip; // AudioClip can access private stuff
+
 public:
     AudioClipController(int bclkPin, int lrclkPin, int dinPin,
-                    int _sd_sckPin, int _sd_misoPin, int _sd_mosiPin, int _sd_csPin);
+                        int _sd_sckPin, int _sd_misoPin, int _sd_mosiPin, int _sd_csPin);
 
     void begin();
 
@@ -38,9 +46,13 @@ public:
     void playHorn(const char *who);
 
     void loop();
- 
 
 private:
+    void addClip(AudioClip *c);
+    void removeClip(AudioClip *c);
+
+    const String horn_filename[2] = {"/horn1.wav", "/horn2.wav"};
+
     int _bclkPin, _lrclkPin, _dinPin;
     int _sd_sckPin, _sd_misoPin, _sd_mosiPin, _sd_csPin;
 
@@ -49,20 +61,34 @@ private:
     volatile bool _hornOn;
 
     volatile uint16_t _engineRpm;
+
+    std::list<AudioClip *> _clipList;    
+    SemaphoreHandle_t clipMutex;
+
     AudioClip *musicItem;
-    std::list<AudioClip *> _clipList;
     AudioClip *engineStartItem;
     AudioClip *engineRuningItem;
-    //AudioClip *engineStopItem;
     AudioClip *blinkerItem;
-    //AudioClip *blinkerEndItem; 
-    //AudioClip *blinkerStartItem;
-    AudioClip *hornItem;
+    AudioClip *backingUpBeepItem;
 
+    // AudioClip *blinkerStartItem;//todo
+    // AudioClip *blinkerEndItem;//todo
+
+    AudioClip *hornItem;
+    // AudioClip *engineStopItem;//todo
 
     static void _soundControllerTask(void *param);
     static void _loopTask(void *param);
     void serialPrint(const char *procName, const char *who);
+
+    static uint16_t Mix(byte *samples, std::list<AudioClip *> &items);
+    static bool hasActiveClips(const std::list<AudioClip *> &items);
+
+    static void clampSample(int32_t &mixedSample, int activeCount);
+    
+    
+
+    static bool FillI2SBuffer(byte *Samples, uint16_t BytesInBuffer);
 };
 
-#endif // SOUND_CONTROLLER_H
+#endif // AUDIO_CLIP_CONTROLLER_H
