@@ -35,7 +35,7 @@ void AudioClip::play()
 
     if (_controller)
         _controller->addClip(this);
-    _wavFile.seek(44 + _startReadPos);
+    _wavFile.seek(44 + _wavStartReadPos);
     _totalBytesRead = 0;
     _isPlaying = true;
     _progressPercent = 0;

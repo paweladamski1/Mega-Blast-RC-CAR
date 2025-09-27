@@ -89,6 +89,7 @@ private:
     
     uint32_t _wavDataSizeOryg;   // Size of wav file data
     uint32_t _wavDataPlayEnd;   // Size of wav file data - if 
+    uint32_t _wavStartReadPos = 0;
     bool _isPlaying = false; // Is file playing
 
     byte _samplesArr[NUM_BYTES_TO_READ_FROM_FILE]; // Buffer to store data red from file
@@ -102,7 +103,7 @@ private:
     uint32_t _soundSize;
     AudioClipController *_controller;
     int _sampleIdx = 0;
-    uint32_t _startReadPos = 0;
+    
     
 
     bool _load();
