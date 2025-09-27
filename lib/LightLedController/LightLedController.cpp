@@ -58,13 +58,13 @@ void LightLedController::indicatorTask(void *param)
         {
             _leftIndicatorOn = true;
             digitalWrite(self->PIN_LEFT_INDICATOR, true);
-            self->sound.startBlinker("LightLedController - left indicator ON");
+            self->sound.playStartBlinker("LightLedController - left indicator ON");
         }
         if (self->_rightIndicatorOn)
         {
             _rightIndicatorOn = true;
             digitalWrite(self->PIN_RIGHT_INDICATOR, true);
-            self->sound.startBlinker("LightLedController - right indicator ON");
+            self->sound.playStartBlinker("LightLedController - right indicator ON");
         }
 
         vTaskDelay(self->blinkInterval);
@@ -99,6 +99,7 @@ void LightLedController::setMainRearLight(bool on)
 void LightLedController::setReverseLight(bool on)
 {
     digitalWrite(PIN_REVERSE, on ? HIGH : LOW);
+    sound.playBackingUpBeep(on);
 }
 
 void LightLedController::setAuxLight(bool on)
