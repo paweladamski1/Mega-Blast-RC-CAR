@@ -86,7 +86,9 @@ public:
 private:
     /* WAV file struct data */
     File _wavFile;           // Object for accessing the opened wavfile
-    uint32_t _wavDataSize;   // Size of wav file data
+    
+    uint32_t _wavDataSizeOryg;   // Size of wav file data
+    uint32_t _wavDataPlayEnd;   // Size of wav file data - if 
     bool _isPlaying = false; // Is file playing
 
     byte _samplesArr[NUM_BYTES_TO_READ_FROM_FILE]; // Buffer to store data red from file
@@ -101,7 +103,7 @@ private:
     AudioClipController *_controller;
     int _sampleIdx = 0;
     uint32_t _startReadPos = 0;
-    uint32_t _stopReadPos = -1;
+    
 
     bool _load();
 

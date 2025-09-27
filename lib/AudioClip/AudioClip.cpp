@@ -63,20 +63,20 @@ bool AudioClip::read()
     if (!_isPlaying)
         return false;
 
-    if (_totalBytesRead + NUM_BYTES_TO_READ_FROM_FILE > _wavDataSize) // If next read will go past the end then adjust the
-        _lastNumBytesRead = _wavDataSize - _totalBytesRead;           // amount to read to whatever is remaining to read
+    if (_totalBytesRead + NUM_BYTES_TO_READ_FROM_FILE > _wavDataPlayEnd) // If next read will go past the end then adjust the
+        _lastNumBytesRead = _wavDataPlayEnd - _totalBytesRead;           // amount to read to whatever is remaining to read
     else
         _lastNumBytesRead = NUM_BYTES_TO_READ_FROM_FILE; // Default to max to read
 
     _wavFile.read(_samplesArr, _lastNumBytesRead); // Read in the bytes from the file
     _totalBytesRead += _lastNumBytesRead;          // Update the total bytes red in so far
 
-    _progressPercent = (float)_totalBytesRead / (float)_wavDataSize * 100.0f;
+    _progressPercent = (float)_totalBytesRead / (float)_wavDataPlayEnd * 100.0f;
 
     if (_progressPercent >= _callEndWhenPercent)
         _callOnEnd_event();
 
-    if (_totalBytesRead >= _wavDataSize) // Have we read in all the data?
+    if (_totalBytesRead >= _wavDataPlayEnd) // Have we read in all the data?
     {
         if (Repeat)
         {
@@ -197,7 +197,7 @@ bool AudioClip::_load()
     {
         _dumpWAVHeader(&WavHeader); // Dump the header data to serial, optional!
         Serial.println();
-        _wavDataSize = WavHeader.DataSize; // Copy the data size into our wav structure
+        _wavDataPlayEnd = WavHeader.DataSize; // Copy the data size into our wav structure
         return true;
     }
     serialPrint(".. fail");
