@@ -81,8 +81,8 @@ bool AudioClip::read()
         if (Repeat)
         {
             serialPrint("Repeat!");
-            _wavFile.seek(44);   // Reset to start of wav data
-            _totalBytesRead = 0; // Clear to no bytes read in so far
+            _wavFile.seek(44 + _wavStartReadPos); // Reset to start of wav data
+            _totalBytesRead = 0;                  // Clear to no bytes read in so far
         }
         else
         {
@@ -99,6 +99,20 @@ bool AudioClip::read()
         return false;
     }
     return _isPlaying;
+}
+
+void AudioClip::setPlaybackRange(uint32_t start, uint32_t end)
+{
+    if (_wavDataSizeOryg > 0)
+    {
+        if (start > _wavDataSizeOryg)
+            start = 0;
+
+        if (end > _wavDataSizeOryg)
+            end = _wavDataSizeOryg;
+    }
+    _wavStartReadPos = start;
+    _wavDataPlayEnd = end;
 }
 
 void AudioClip::increaseVolume()
@@ -197,7 +211,14 @@ bool AudioClip::_load()
     {
         _dumpWAVHeader(&WavHeader); // Dump the header data to serial, optional!
         Serial.println();
-        _wavDataPlayEnd = WavHeader.DataSize; // Copy the data size into our wav structure
+
+        _wavDataSizeOryg = WavHeader.DataSize; // Copy the data size into our wav structure
+        if (_wavDataPlayEnd == 0)
+            _wavDataPlayEnd = _wavDataSizeOryg;
+
+        if (_wavDataPlayEnd > _wavDataSizeOryg)
+            _wavDataPlayEnd = _wavDataSizeOryg;
+
         return true;
     }
     serialPrint(".. fail");

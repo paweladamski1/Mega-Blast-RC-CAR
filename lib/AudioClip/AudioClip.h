@@ -61,6 +61,7 @@ public:
     void play();
     void stop();
     bool read();
+    void setPlaybackRange(uint32_t start, uint32_t end);
 
     void increaseVolume();
     void decreaseVolume();
@@ -85,10 +86,10 @@ public:
 
 private:
     /* WAV file struct data */
-    File _wavFile;           // Object for accessing the opened wavfile
-    
-    uint32_t _wavDataSizeOryg;   // Size of wav file data
-    uint32_t _wavDataPlayEnd;   // Size of wav file data - if 
+    File _wavFile; // Object for accessing the opened wavfile
+
+    uint32_t _wavDataSizeOryg; // Size of wav file data
+    uint32_t _wavDataPlayEnd;  // Size of wav file data - if
     uint32_t _wavStartReadPos = 0;
     bool _isPlaying = false; // Is file playing
 
@@ -103,8 +104,6 @@ private:
     uint32_t _soundSize;
     AudioClipController *_controller;
     int _sampleIdx = 0;
-    
-    
 
     bool _load();
 
