@@ -6,8 +6,9 @@
 AudioClipController::AudioClipController(int bclkPin, int lrclkPin, int dinPin,
                                          int _sd_sckPin, int _sd_misoPin, int _sd_mosiPin, int _sd_csPin)
     : _bclkPin(bclkPin), _lrclkPin(lrclkPin), _dinPin(dinPin),
-      _engineOn_Req(false), _blinkerOn_Req(false), _hornOn(false), _engineRpm(0),
-      _sd_sckPin(_sd_sckPin), _sd_misoPin(_sd_misoPin), _sd_mosiPin(_sd_mosiPin), _sd_csPin(_sd_csPin)
+      _engineOn_Req(false), _blinkerOn_Req(false), _hornOn(false), _engineRpm_Req(0),
+      _sd_sckPin(_sd_sckPin), _sd_misoPin(_sd_misoPin), _sd_mosiPin(_sd_mosiPin), _sd_csPin(_sd_csPin),
+      _MusicOn_Req(false), _MusicNext_Req(false),_engineRuning_Req(false)
 {
     clipMutex = xSemaphoreCreateMutex();
 }
@@ -36,7 +37,21 @@ void AudioClipController::begin()
     i2s_set_pin(I2S_NUM_0, &pin_config);
 
     Serial.println("");
-    musicItem = new AudioClip(this, "/music1.wav", 0.5f, false);
+
+    musicItem[0] = new AudioClip(this, "/music1.wav", 0.9f, false, 100.0f);
+    musicItem[1] = new AudioClip(this, "/music2.wav", 0.9f, false, 100.0f);
+    musicItem[2] = new AudioClip(this, "/music3.wav", 0.9f, false, 100.0f);
+    musicItem[3] = new AudioClip(this, "/music4.wav", 0.9f, false, 100.0f);
+    musicItem[4] = new AudioClip(this, "/music5.wav", 0.9f, false, 100.0f);
+
+    // when music end then play next
+    for (int i = 0; i < 5; i++)
+    {
+        musicItem[i]->onEnd = [](AudioClip *sender, AudioClipController *controller)
+        {
+            controller->playNextMusic();
+        };
+    }
 
     // TODO:
     // blinkerStartItem = new AudioClip(this, "/blinker_start.wav", 1.0f, true);
@@ -47,8 +62,19 @@ void AudioClipController::begin()
 
     int choice = random(0, 2);
     hornItem = new AudioClip(this, horn_filename[choice], 1.0f, false);
-    engineStartItem = new AudioClip(this, "/engine_start1.wav", 1.0f, false);
-    engineRuningItem = new AudioClip(this, "/engine_runing1.wav", 0.4f, true);
+    engineStartItem = new AudioClip(this, "/engine_start1.wav", 0.5f, false);
+    engineRuningItem = new AudioClip(this, "/engine_runing1.wav", 0.5f, true, 92.0f);
+    engineStopItem = new AudioClip(this, "/engine_stop1.wav", 0.5f, false);
+
+    gearChangeItem = new AudioClip(this, "/gear_change.wav", 1.0f, false);
+    gearChangeFailItem = new AudioClip(this, "/gear_change_err.wav", 1.0f, false);
+
+    engineStartItem->onEnd = [](AudioClip *sender, AudioClipController *controller)
+    {
+        Serial.println("");
+        
+        controller->_engineRuning_Req=true;
+    };
 
     vTaskDelay(100);
 
@@ -60,94 +86,151 @@ void AudioClipController::begin()
     Serial.println("AudioClipController::begin complete ");
 }
 
-void AudioClipController::_soundControllerTask(void *param)
+
+void AudioClipController::_soundControllerTask()
 {
     Serial.println("_soundControllerTask runing.");
     bool isEnginStarted = false;
     bool isAddedQueueFlag = false;
-    auto *parent = static_cast<AudioClipController *>(param);
 
-    bool engineOn_State = parent->_engineOn_Req;
-    bool blinkerOn_State = parent->_blinkerOn_Req;
-    int engineRpm = parent->_engineRpm;
+    bool engineOn_State = _engineOn_Req;
+    bool blinkerOn_State = _blinkerOn_Req;
+    bool backingUpOn_State = _backingUpOn_Req;
+    bool _MusicOn_State = _MusicOn_Req;
 
-    AudioClip *hornItem = parent->hornItem;
-    AudioClip *blinkerItem = parent->blinkerItem;
-    AudioClip *engineRuningItem = parent->engineRuningItem;
-    AudioClip *engineStartItem = parent->engineStartItem;
+    int engineRpm_State = _engineRpm_Req;
 
     Serial.println("_soundControllerTask start control.");
 
+    const int normdelay = 500;
+    int delay = normdelay;
     while (true)
     {
-        if (parent->_hornOn)
+
+        if (_gearChange_Req)
         {
-            hornItem->play();
-
-            while (hornItem->isPlaying())
-                vTaskDelay(10);
-
-            parent->_hornOn = false;
+            _playAudioClipAndWaitForEnd(gearChangeItem);
+            _gearChange_Req = false;
         }
 
-        if (parent->_blinkerOn_Req && !blinkerOn_State)
+        if (_gearChangeFail_Req)
         {
-            Serial.println("AudioClipController::_soundControllerTask - START BLINKER");
+            _playAudioClipAndWaitForEnd(gearChangeFailItem);
+            _gearChangeFail_Req = false;
+        }
+
+        if (_hornOn)
+        {
+            _playAudioClipAndWaitForEnd(hornItem);
+            _hornOn = false;
+        }
+
+        if (_engineRuning_Req)
+        {
+            _engineRuning_Req=false;
+            engineRuningItem->play();
+        }
+
+        if (_blinkerOn_Req && !blinkerOn_State)
+        {
+            serialPrint("_controller", "START BLINKER");
             blinkerOn_State = true;
             blinkerItem->play();
         }
 
-        if (parent->_engineOn_Req && !engineOn_State)
+        if (_engineOn_Req && !engineOn_State)
         {
-            Serial.println();
-            Serial.println("AudioClipController::_soundControllerTask - START ENGINE");
+            serialPrint("_controller", "START ENGINE");
             engineOn_State = true;
             if (!engineRuningItem->isPlaying())
-            {
-                parent->engineStartItem->play();
-                parent->engineStartItem->onEnd = [](AudioClip *sender, AudioClipController *controller)
-                {
-                    Serial.println("");
-                    controller->engineRuningItem->play();
-                };
-            }
+                engineStartItem->play();
         }
 
-        if (!parent->_engineOn_Req && engineOn_State)
+        if (_backingUpOn_Req && !backingUpOn_State)
         {
-            engineOn_State = parent->_engineOn_Req;
+
+            serialPrint("_controller", "Backing Up Beep On");
+            backingUpOn_State = true;
+            if (!backingUpBeepItem->isPlaying())
+                backingUpBeepItem->play();
+        }
+
+        if (_MusicOn_Req && !_MusicOn_State)
+        {
+            serialPrint("_controller", "Music on");
+            _MusicOn_State = true;
+            if (!musicItem[_musicIdx.value]->isPlaying())
+                musicItem[_musicIdx.value]->play();
+        }
+
+        if (_MusicNext_Req)
+        {
+            serialPrint("_controller", "NEXT Music");
+            _MusicNext_Req = false;
+            if (musicItem[_musicIdx.value]->isPlaying())
+                musicItem[_musicIdx.value]->stop();
+
+            _musicIdx.increment();
+            _MusicOn_Req = true;
+            _MusicOn_State = false;
+        }
+
+        // turn of
+        if (!_engineOn_Req && engineOn_State)
+        {
+            engineOn_State = _engineOn_Req;
+            engineStopItem->play();
+            vTaskDelay(500);            
             engineRuningItem->stop();
         }
 
-        if (!parent->_blinkerOn_Req && blinkerOn_State)
+        if (!_blinkerOn_Req && blinkerOn_State)
         {
-            blinkerOn_State = parent->_blinkerOn_Req;
+            blinkerOn_State = _blinkerOn_Req;
             blinkerItem->stop();
         }
 
-        if (engineRpm != parent->_engineRpm)
+        if (!_backingUpOn_Req && backingUpOn_State)
         {
-            // engineRuningItem->setSpeed(parent->_engineRpm);
-            // engineRpm = parent->_engineRpm;
-            // todo
+            backingUpOn_State = _backingUpOn_Req;
+            backingUpBeepItem->stop();
         }
-        vTaskDelay(500);
+
+        if (!_MusicOn_Req && _MusicOn_State)
+        {
+            _MusicOn_State = _MusicOn_Req;
+            musicItem[_musicIdx.value]->stop();
+        }
+
+        if (engineRpm_State != _engineRpm_Req)
+        {
+            //serialPrint("_controller", "RPM");
+           // Serial.print(engineRpm_State);
+            // float speed = 1.0f + (engineRpm_State / 255.0f) * 1.2f;  // 1.0 → 2.2
+            float volume = 0.5f + (engineRpm_State / 255.0f) * 0.7f; // 0.3 → 1.0
+
+            //Serial.println();
+            Serial.print(" ");
+            Serial.print(volume);
+
+            // engineRuningItem->setSpeed(speed);
+            //  engineRuningItem->setVolume(volume);
+
+            // engineRpm_State = _engineRpm_Req;
+            if (_engineRpm_Req > engineRpm_State)
+                engineRpm_State=_engineRpm_Req;
+            else
+                engineRpm_State--;
+
+            delay = 1;
+        }
+        vTaskDelay(delay);
     }
 }
 
-void AudioClipController::_loopTask(void *param)
-{
-    auto *parent = static_cast<AudioClipController *>(param);
-    Serial.println("_loopTask runing.");
-    vTaskDelay(5000);
-    while (true)
-    {
-        parent->loop();
-        vTaskDelay(1);
-    }
-}
 
-void AudioClipController::startEngine(const char *who)
+
+void AudioClipController::playStartEngine(const char *who)
 {
     if (!_engineOn_Req)
         serialPrint("startEngine", who);
@@ -163,13 +246,19 @@ void AudioClipController::stopEngine(const char *who)
 
 void AudioClipController::setEngineRpm(const char *who, uint16_t rpm)
 {
-    if (_engineRpm != rpm)
+    if (_engineRpm_Req != rpm)
+    {
         serialPrint("setEngineRpm", who);
+        
+    }
 
-    _engineRpm = rpm;
+    _engineRpm_Req = map(rpm, 0, 255, 0, 255);
+    Serial.print(" [r=");
+    Serial.print(rpm);
+    Serial.print(" ]");
 }
 
-void AudioClipController::startBlinker(const char *who)
+void AudioClipController::playStartBlinker(const char *who)
 {
     if (!_blinkerOn_Req)
         serialPrint("startBlinker", who);
@@ -185,6 +274,123 @@ void AudioClipController::stopBlinker(const char *who)
     _blinkerOn_Req = false;
 }
 
+void AudioClipController::playHorn(const char *who)
+{
+    Serial.println("AudioClipController::playHorn()");
+    Serial.print(who);
+    Serial.print(" ");
+    Serial.print(_hornOn);
+    _hornOn = true;
+}
+
+void AudioClipController::playBackingUpBeep(bool isPlay)
+{
+    _backingUpOn_Req = isPlay;
+}
+
+void AudioClipController::playMusic()
+{
+    _MusicOn_Req = true;
+}
+
+void AudioClipController::playNextMusic()
+{
+    _MusicNext_Req = true;
+}
+
+void AudioClipController::stopMusic()
+{
+    _MusicOn_Req = false;
+}
+
+void AudioClipController::playGearChange()
+{
+    _gearChange_Req = true;
+}
+
+void AudioClipController::playGearChangeFail()
+{
+    _gearChangeFail_Req = true;
+}
+
+void AudioClipController::addClip(AudioClip *c)
+{
+    Serial.println("AudioClipController::addClip");
+    // if (xSemaphoreTake(clipMutex, portMAX_DELAY))
+    {
+        _clipList.push_back(c);
+        // xSemaphoreGive(clipMutex);
+    }
+}
+
+void AudioClipController::removeClip(AudioClip *c)
+{
+    Serial.println("AudioClipController::removeClip");
+    // if (xSemaphoreTake(clipMutex, portMAX_DELAY))
+    {
+        size_t a = _clipList.size();
+        _clipList.remove(c);
+        size_t b = _clipList.size();
+        size_t x = a - b;
+
+        Serial.print("... Removed from list:");
+        Serial.print(x);
+        Serial.print("... size=");
+        Serial.print(b);
+        // xSemaphoreGive(clipMutex);
+    }
+}
+
+bool AudioClipController::hasActiveClips(const std::list<AudioClip *> &items)
+{
+    for (AudioClip *item : items)
+    {
+        if (item->isBufferNotEmpty())
+            return true;
+    }
+    return false;
+}
+
+void AudioClipController::clampSample(int32_t &mixedSample, int activeCount)
+{
+    if (mixedSample > 32767 || mixedSample < -32768)
+        mixedSample /= activeCount;
+
+    if (mixedSample > 32767)
+        mixedSample = 32767;
+    if (mixedSample < -32768)
+        mixedSample = -32768;
+}
+
+bool AudioClipController::FillI2SBuffer(byte *Samples, uint16_t BytesInBuffer)
+{
+    // Writes bytes to buffer, returns true if all bytes sent else false, keeps track itself of how many left
+    // to write, so just keep calling this routine until returns true to know they've all been written, then
+    // you can re-fill the buffer
+
+    size_t BytesWritten;           // Returned by the I2S write routine,
+    static uint16_t BufferIdx = 0; // Current pos of buffer to output next
+    uint8_t *DataPtr;              // Point to next data to send to I2S
+    uint16_t BytesToSend;          // Number of bytes to send to I2S
+
+    // To make the code eaier to understand I'm using to variables to some calculations, normally I'd write this calcs
+    // directly into the line of code where they belong, but this make it easier to understand what's happening
+
+    DataPtr = Samples + BufferIdx;                                            // Set address to next byte in buffer to send out
+    BytesToSend = BytesInBuffer - BufferIdx;                                  // This is amount to send (total less what we've already sent)
+    i2s_write(I2S_NUM_0, DataPtr, BytesToSend, &BytesWritten, portMAX_DELAY); // Send the bytes, wait 1 RTOS tick to complete
+    BufferIdx += BytesWritten;                                                // increasue by number of bytes actually written
+
+    if (BufferIdx >= BytesInBuffer)
+    {
+        // sent out all bytes in buffer, reset and return true to indicate this
+        BufferIdx = 0;
+        return true;
+    }
+    else
+        return false; // Still more data to send to I2S so return false to indicate this
+}
+
 void AudioClipController::serialPrint(const char *procName, const char *who)
 {
     Serial.println();
@@ -195,38 +401,39 @@ void AudioClipController::serialPrint(const char *procName, const char *who)
     Serial.println();
 }
 
-void AudioClipController::playHorn(const char *who)
+void AudioClipController::_soundControllerTask(void *param)
 {
-    Serial.println("AudioClipController::playHorn()");
-    Serial.print(who);
-    Serial.print(" ");
-    Serial.print(_hornOn);
-    _hornOn = true;
+    auto *parent = static_cast<AudioClipController *>(param);
+    Serial.println("_soundControllerTask runing.");
+    parent->_soundControllerTask();
 }
 
-void AudioClipController::addClip(AudioClip *c)
+void AudioClipController::_playAudioClipAndWaitForEnd(AudioClip *audio)
 {
-    if (xSemaphoreTake(clipMutex, portMAX_DELAY))
+    audio->play();
+
+    while (audio->isPlaying())
+        vTaskDelay(1000);
+}
+
+void AudioClipController::_loopTask(void *param)
+{
+    auto *parent = static_cast<AudioClipController *>(param);
+    Serial.println("_loopTask runing.");
+    vTaskDelay(5000);
+    while (true)
     {
-        _clipList.push_back(c);
-        xSemaphoreGive(clipMutex);
+        parent->_loopTask();
+        vTaskDelay(1);
     }
 }
 
-void AudioClipController::removeClip(AudioClip *c)
-{
-    if (xSemaphoreTake(clipMutex, portMAX_DELAY))
-    {
-        _clipList.remove(c);
-        xSemaphoreGive(clipMutex);
-    }
-}
-
-void AudioClipController::loop()
+void AudioClipController::_loopTask()
 {
     if (!xSemaphoreTake(clipMutex, portMAX_DELAY))
     {
         vTaskDelay(5);
+        serialPrint("_loopTask", "mutex wait");
         return;
     }
     bool _noPlaying = true;
@@ -262,7 +469,6 @@ void AudioClipController::loop()
         }
         if (!IsRead)
         {
-            Serial.print(" AudioClip::loop -- no _isPlaying!");
             vTaskDelay(1000);
             return;
         }
@@ -329,52 +535,3 @@ uint16_t AudioClipController::Mix(byte *samples, std::list<AudioClip *> &items)
     return MaxBytesInBuffer;
 }
 
-bool AudioClipController::hasActiveClips(const std::list<AudioClip *> &items)
-{
-    for (AudioClip *item : items)
-    {
-        if (item->isBufferNotEmpty())
-            return true;
-    }
-    return false;
-}
-
-void AudioClipController::clampSample(int32_t &mixedSample, int activeCount)
-{
-    if (mixedSample > 32767 || mixedSample < -32768)
-        mixedSample /= activeCount;
-
-    if (mixedSample > 32767)
-        mixedSample = 32767;
-    if (mixedSample < -32768)
-        mixedSample = -32768;
-}
-
-bool AudioClipController::FillI2SBuffer(byte *Samples, uint16_t BytesInBuffer)
-{
-    // Writes bytes to buffer, returns true if all bytes sent else false, keeps track itself of how many left
-    // to write, so just keep calling this routine until returns true to know they've all been written, then
-    // you can re-fill the buffer
-
-    size_t BytesWritten;           // Returned by the I2S write routine,
-    static uint16_t BufferIdx = 0; // Current pos of buffer to output next
-    uint8_t *DataPtr;              // Point to next data to send to I2S
-    uint16_t BytesToSend;          // Number of bytes to send to I2S
-
-    // To make the code eaier to understand I'm using to variables to some calculations, normally I'd write this calcs
-    // directly into the line of code where they belong, but this make it easier to understand what's happening
-
-    DataPtr = Samples + BufferIdx;                                            // Set address to next byte in buffer to send out
-    BytesToSend = BytesInBuffer - BufferIdx;                                  // This is amount to send (total less what we've already sent)
-    i2s_write(I2S_NUM_0, DataPtr, BytesToSend, &BytesWritten, portMAX_DELAY); // Send the bytes, wait 1 RTOS tick to complete
-    BufferIdx += BytesWritten;                                                // increasue by number of bytes actually written
-
-    if (BufferIdx >= BytesInBuffer)
-    {
-        // sent out all bytes in buffer, reset and return true to indicate this
-        BufferIdx = 0;
-        return true;
-    }
-    else
-        return false; // Still more data to send to I2S so return false to indicate this
-}
