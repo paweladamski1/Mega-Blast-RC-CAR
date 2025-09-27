@@ -17,7 +17,7 @@ AudioClip::AudioClip(AudioClipController *controller,
     Repeat = repeat;
     _isPlaying = false;
     serialPrint(" AudioClip::AudioClip constructor ");
-    
+
     if (repeat)
         _load();
 }
@@ -35,7 +35,7 @@ void AudioClip::play()
 
     if (_controller)
         _controller->addClip(this);
-    _wavFile.seek(44);
+    _wavFile.seek(44 + _startReadPos);
     _totalBytesRead = 0;
     _isPlaying = true;
     _progressPercent = 0;
@@ -63,16 +63,26 @@ bool AudioClip::read()
     if (!_isPlaying)
         return false;
 
+   
+    bool isEnd = false;
+
     if (_totalBytesRead + NUM_BYTES_TO_READ_FROM_FILE > _wavDataSize) // If next read will go past the end then adjust the
-        _lastNumBytesRead = _wavDataSize - _totalBytesRead;           // amount to read to whatever is remaining to read
+        _lastNumBytesRead = _wavDataSize - _totalBytesRead; // amount to read to whatever is remaining to read
     else
         _lastNumBytesRead = NUM_BYTES_TO_READ_FROM_FILE; // Default to max to read
 
-    _wavFile.read(_samplesArr, _lastNumBytesRead); // Read in the bytes from the file
-    _totalBytesRead += _lastNumBytesRead;          // Update the total bytes red in so far
+    if (_stopReadPos > 0 && _totalBytesRead + NUM_BYTES_TO_READ_FROM_FILE > _stopReadPos )
+    {
+        _lastNumBytesRead -=  (_totalBytesRead + NUM_BYTES_TO_READ_FROM_FILE) - _stopReadPos;
+    } 
+
+    if (_lastNumBytesRead > 0)
+    {
+        _wavFile.read(_samplesArr, _lastNumBytesRead); // Read in the bytes from the file
+        _totalBytesRead += _lastNumBytesRead;          // Update the total bytes red in so far
+    }
 
     _progressPercent = (float)_totalBytesRead / (float)_wavDataSize * 100.0f;
-
     if (_progressPercent >= _callEndWhenPercent)
         _callOnEnd_event();
 
@@ -100,7 +110,6 @@ bool AudioClip::read()
     }
     return _isPlaying;
 }
- 
 
 void AudioClip::increaseVolume()
 {
