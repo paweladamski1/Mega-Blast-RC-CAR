@@ -48,6 +48,7 @@ MotorController motor(AIN1, AIN2, PWMA, BIN1, BIN2, PWMB, STBY);
 AudioClipController sound(I2S_BCLK, I2S_LRCLK, I2S_DIN, SD_SCK, SD_MISO, SD_MOSI, SD_CS);
 LightLedController lights(LED_LEFT_INDICATOR, LED_RIGHT_INDICATOR, LED_BRAKE, LED_MAIN_REAR, LED_REVERSE, LED_AUX, sound);
 BluePad32Controller pad(lights, sound);
+ 
 
 /*
  * SETUP
@@ -116,13 +117,13 @@ void test_sound()
       sound.playHorn("main");
       break;
     case 'e':
-      sound.startEngine("main");
+      sound.playStartEngine("main");
       break;
     case 's':
       sound.stopEngine("main");
       break;
     case 'b':
-      sound.startBlinker("main");
+      sound.playStartBlinker("main");
       break;
     case 'x':
       sound.stopBlinker("main");
