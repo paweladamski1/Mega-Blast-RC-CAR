@@ -2,13 +2,7 @@
 #define MOTORCONTROLLER_H
 
 #include <Arduino.h>
-
-enum EDirection
-{
-    FORWARD,
-    REVERSE
-};
-
+ 
 class MotorController {
 public:
     MotorController(int ain1, int ain2, int pwma,
@@ -16,7 +10,7 @@ public:
                     int stby);
 
     void begin();
-    void drive(int throttle, int steering, EDirection direction); // throttle: -255 to 255, steering: -100 to 100
+    void drive(int throttle, int steering, int gear); // throttle: -255 to 255, steering: -100 to 100
     void stop();
     void startEngine();
 

@@ -23,7 +23,7 @@ void MotorController::begin()
     isStopFlag = true;
 }
 
-void MotorController::drive(int throttle, int steering, EDirection direction)
+void MotorController::drive(int throttle, int steering, int gear)
 {
     isStopFlag = (throttle == 0) ? true : false;
 
@@ -41,8 +41,15 @@ void MotorController::drive(int throttle, int steering, EDirection direction)
     int leftSpeed = constrain((throttle - _lSteering) + abs(_rSteering), 0, 255);
     int rightSpeed = constrain((throttle - _rSteering) + abs(_lSteering), 0, 255);
 
-    setMotor(_ain1, _ain2, _pwma, (direction == EDirection::FORWARD) ? leftSpeed : -leftSpeed);
-    setMotor(_bin1, _bin2, _pwmb, (direction == EDirection::FORWARD) ? rightSpeed : -rightSpeed);
+    if(leftSpeed==0 and rightSpeed > 0)
+        leftSpeed=-rightSpeed;
+
+    if(rightSpeed==0 and leftSpeed > 0)
+        rightSpeed=-leftSpeed;
+
+
+    setMotor(_ain1, _ain2, _pwma, (gear>=0) ? leftSpeed : -leftSpeed);
+    setMotor(_bin1, _bin2, _pwmb, (gear>=0) ? rightSpeed : -rightSpeed);
 }
 
 void MotorController::stop()
