@@ -53,18 +53,22 @@ struct WavHeader_Struct
 
 class AudioClip
 {
-       // friend class AudioClipController; // AudioClipController can access private stuff
+    
 public:
-    AudioClip(AudioClipController *c, const String &fileName, float volume = 0.6f, bool repeat = false);
+    AudioClip(AudioClipController *c, const String &fileName, float volume = 0.6f, bool repeat = false, float callEndWhenPercent=95.0f);
     ~AudioClip();
 
     void play();
     void stop();
-    bool read();
-    
+    bool read(); 
+
+    void increaseVolume();
+    void decreaseVolume();
+    void setVolume(float newVolume);
 
     // events
-    void (*onEnd)(AudioClip * sender, AudioClipController * controller) = nullptr;
+    // event fired when clip ends
+    std::function<void(AudioClip* sender, AudioClipController* controller)> onEnd;
 
     // check states
     bool isPlaying() const;
@@ -73,12 +77,12 @@ public:
 
     // play process
     void resetIdx();
-    uint16_t getIdx() const;
-    
+    uint16_t getIdx() const;    
     bool isBufferNotEmpty() const;
     bool isReadyToMix() const;
     int16_t getNextSample();
     uint16_t getBytesInBuffer() const;
+
 
 private:
     
@@ -92,13 +96,15 @@ private:
     uint16_t _lastNumBytesRead;                 // Num bytes actually read from the wav file which will either be
                                                // NUM_BYTES_TO_READ_FROM_FILE or less than this if we are very
                                                // near the end of the file. i.e. we can't read beyond the file.
-    bool _isChange;
-    float _volume, _progressPercent;
+    bool _isCallOnEnd;
+    float _volume, _progressPercent, _callEndWhenPercent;
     String _id, _fileName;
     uint32_t _soundSize;
-    uint16_t _Idx;
+    //uint16_t _Idx;
     AudioClipController *_controller;
+    int _sampleIdx = 0;
     
+
     bool _load();
 
     
@@ -106,7 +112,9 @@ private:
     void _dumpWAVHeader(WavHeader_Struct *Wav);
 
     
-    void _onEndCall();    
+    
+    void _callOnEnd_event();
+    
     void serialPrint(const char *data);                   // for debug
     void serialPrint(const char *data, const uint32_t n); // for debug
     void serialPrint_fileHeader(const char *Data, uint8_t NumBytes);
