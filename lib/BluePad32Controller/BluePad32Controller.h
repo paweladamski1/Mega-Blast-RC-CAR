@@ -12,7 +12,7 @@ struct SControlData
     int momentum; // 0 to 255
     int steering; // -100 to 100
     bool brake;
-    EDirection direction;
+    int gear;
 };
 
 #define DPAD_ARROW_UP 0x0001
@@ -30,29 +30,33 @@ public:
     void begin();
     void loop(MotorController &motor);
 
+    
+
 private:
     LightLedController &lights;
     AudioClipController &sound;
+    int _gear=0;
 
     static void onConnected(GamepadPtr gp);
     static void onDisconnected(GamepadPtr gp);
 
+
+
     void updateControlData();
-
     void onAcceleratingAction(int throttle);
-    void onBrakingAction(int brakeForce);
-    void onIdleAction();
-    void onCoastingAction(EDirection dir);
-    void onChangeDirectionAction(EDirection dir);
-    void toggleDirection();
+    void onBrakingAction(int brakeForce); 
 
-    bool isArrowRight();
-    bool isArrowLeft();
-    bool isArrowUp();
-    bool isArrowDown();
 
-    bool isL1();
-    bool isR1();
+    void _gearBox();
+
+    bool _getArrowRightToggleState();
+    bool _getArrowLeftToggleState();
+    bool _getArrowUpToggleState();
+    bool _getArrowDownToggleState();
+
+    bool _getL1ToggleState();
+    bool _getR1ToggleState();
+    bool _getXToggleState();
 
     bool isConnected();
     static GamepadPtr gamepad;
@@ -62,14 +66,7 @@ private:
 
     static bool FirstConnectFlag;
     static bool FirstDisconnectFlag;
-    
-    
-    static EDirection Direction;
     bool _isConnectedState;
-    
-    
-    //static BluePad32Controller* parent;  // static pointer to current object
-
 };
 
 #endif
