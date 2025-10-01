@@ -27,7 +27,7 @@ private:
     bool _leftIndicatorOn;
     bool _rightIndicatorOn;
     AudioClipController &sound;
-    TaskHandle_t taskHandle = NULL;
+    TaskHandle_t _taskHandle = NULL;
 
     uint8_t PIN_LEFT_INDICATOR;
     uint8_t PIN_RIGHT_INDICATOR;
@@ -36,8 +36,9 @@ private:
     uint8_t PIN_REVERSE;
     uint8_t PIN_AUX;
 
-    const TickType_t blinkInterval = 500 / portTICK_PERIOD_MS;
-    static void indicatorTask(void *param);    
+    const TickType_t _blinkInterval = 500 / portTICK_PERIOD_MS;
+    static void _indicatorTask(void *param);    
+    void _indicatorTask(); 
 };
 
 #endif

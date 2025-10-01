@@ -8,14 +8,14 @@ LightLedController::LightLedController(
     uint8_t pinReverse,
     uint8_t pinAux,
     AudioClipController &sound) : PIN_LEFT_INDICATOR(pinLeftIndicator),
-                              PIN_RIGHT_INDICATOR(pinRightIndicator),
-                              PIN_BRAKE(pinBrake),
-                              PIN_MAIN_REAR(pinRear),
-                              PIN_REVERSE(pinReverse),
-                              PIN_AUX(pinAux),
-                              _leftIndicatorOn(false),
-                              _rightIndicatorOn(false),
-                              sound(sound)
+                                  PIN_RIGHT_INDICATOR(pinRightIndicator),
+                                  PIN_BRAKE(pinBrake),
+                                  PIN_MAIN_REAR(pinRear),
+                                  PIN_REVERSE(pinReverse),
+                                  PIN_AUX(pinAux),
+                                  _leftIndicatorOn(false),
+                                  _rightIndicatorOn(false),
+                                  sound(sound)
 
 {
 }
@@ -37,52 +37,60 @@ void LightLedController::begin()
     digitalWrite(PIN_AUX, LOW);
 
     xTaskCreatePinnedToCore(
-        indicatorTask,
-        "LeftIndicator",
+        _indicatorTask,
+        "indicatorTask",
         1024,
         this,
         1,
-        &taskHandle,
+        &_taskHandle,
         1);
 }
 
-void LightLedController::indicatorTask(void *param)
+void LightLedController::_indicatorTask(void *param)
 {
     LightLedController *self = static_cast<LightLedController *>(param);
     bool state = false;
-    bool _leftIndicatorOn = self->_leftIndicatorOn;
-    bool _rightIndicatorOn = self->_rightIndicatorOn;
+
     while (true)
     {
-        if (self->_leftIndicatorOn)
-        {
-            _leftIndicatorOn = true;
-            digitalWrite(self->PIN_LEFT_INDICATOR, true);
-            self->sound.playStartBlinker("LightLedController - left indicator ON");
-        }
-        if (self->_rightIndicatorOn)
-        {
-            _rightIndicatorOn = true;
-            digitalWrite(self->PIN_RIGHT_INDICATOR, true);
-            self->sound.playStartBlinker("LightLedController - right indicator ON");
-        }
+        self->_indicatorTask();
+    }
+}
 
-        vTaskDelay(self->blinkInterval);
+void LightLedController::_indicatorTask()
+{
+    static bool leftIndicatorOn_State = _leftIndicatorOn;
+    static bool rightIndicatorOn_State = _rightIndicatorOn;
+    if (_leftIndicatorOn)
+    {
+        leftIndicatorOn_State = true;
+        digitalWrite(PIN_LEFT_INDICATOR, true);
+        sound.playStartBlinker("LightLedController - left indicator ON");
+    }
+    if (_rightIndicatorOn)
+    {
+        rightIndicatorOn_State = true;
+        digitalWrite(PIN_RIGHT_INDICATOR, true);
+        sound.playStartBlinker("LightLedController - right indicator ON");
+    }
 
-        if (_leftIndicatorOn)
-            digitalWrite(self->PIN_LEFT_INDICATOR, false);
-        if (_rightIndicatorOn)
-            digitalWrite(self->PIN_RIGHT_INDICATOR, false);
+    vTaskDelay(_blinkInterval);
 
-        vTaskDelay(self->blinkInterval);
+    if (leftIndicatorOn_State)
+        digitalWrite(PIN_LEFT_INDICATOR, false);
+    if (rightIndicatorOn_State)
+        digitalWrite(PIN_RIGHT_INDICATOR, false);
 
-        if ((!self->_leftIndicatorOn && _leftIndicatorOn) || (!self->_rightIndicatorOn && _rightIndicatorOn))
-        {
-            if (!self->_leftIndicatorOn && !self->_rightIndicatorOn)
-                self->sound.stopBlinker("LightLedController - right or left indicator OFF");
-            _leftIndicatorOn = self->_leftIndicatorOn;
-            _rightIndicatorOn = self->_rightIndicatorOn;
-        }
+    vTaskDelay(_blinkInterval);
+
+    // check if state changed during the delay
+    if ((!_leftIndicatorOn && leftIndicatorOn_State) || (!_rightIndicatorOn && rightIndicatorOn_State))
+    {
+        if (!_leftIndicatorOn && !_rightIndicatorOn)
+            sound.stopBlinker("LightLedController - right or left indicator OFF");
+
+        leftIndicatorOn_State = _leftIndicatorOn;
+        rightIndicatorOn_State = _rightIndicatorOn;
     }
 }
 
