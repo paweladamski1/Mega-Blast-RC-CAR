@@ -1,40 +1,9 @@
 #include <Arduino.h>
 #include <unity.h>
 #include "AudioClipController.h"
+#include "definitions.h" 
 
-/* MOTOR DRIVER */
-#define PWMA 32
-#define AIN2 33
-#define AIN1 25
-#define STBY 26
-#define BIN1 27
-#define BIN2 14
-#define PWMB 12
 
-/* LEDS */
-#define LED_STATUS 21
-
-/* LIGHTS */
-#define LED_LEFT_INDICATOR 18
-#define LED_BRAKE 5
-#define LED_MAIN_REAR 17
-#define LED_REVERSE 16
-#define LED_AUX 4
-#define LED_RIGHT_INDICATOR 0
-
-/* SENSORS  */
-#define CHARGER_DETECT_PIN 34
-
-/* SOUND */
-#define I2S_DIN 23
-#define I2S_BCLK 2
-#define I2S_LRCLK 19
-
-/* SD CARD */
-#define SD_MISO 35
-#define SD_SCK 13
-#define SD_MOSI 22
-#define SD_CS 15
 AudioClipController sound(I2S_BCLK, I2S_LRCLK, I2S_DIN, SD_SCK, SD_MISO, SD_MOSI, SD_CS);
 
 void test_controller_play(void)
@@ -50,17 +19,38 @@ void test_controller_play(void)
     {
         t++;
         delay(1000);
-        Serial.print("+");
+        Serial.println("");
+        Serial.println(t);
+        if (t == 15)
+            sound.stopEngine(who);
+
+        if (t == 25)
+            sound.playStartEngine("test_audio");
+
+        if (t == 27)
+            sound.setEngineRpm(who, 30);
+        if (t == 29)
+            sound.setEngineRpm(who, 21);
+        if (t == 35)
+            sound.setEngineRpm(who, 0);
+        if (t == 37)
+            sound.setEngineRpm(who, 30);
+        if (t == 45)
+            sound.setEngineRpm(who, 10);
+        if (t == 50)
+            sound.setEngineRpm(who, 0);
+
+        if (t == 58)
+            sound.stopEngine(who);
 
         // events
-        if(t==15)  sound.playHorn(who);
-        if(t == 25) sound.playStartBlinker(who);
-        if(t == 30) sound.stopBlinker(who);
-        if(t > 15) sound.setEngineRpm(who, t);
-        if(t==30) sound.playMusic();
-        if(t==40) sound.playNextMusic();
-        if(t==45) sound.stopMusic();
-
+        /*  if(t==15)  sound.playHorn(who);
+          if(t == 25) sound.playStartBlinker(who);
+          if(t == 30) sound.stopBlinker(who);
+          if(t > 15) sound.setEngineRpm(who, t);
+          if(t==30) sound.playMusic();
+          if(t==40) sound.playNextMusic();
+          if(t==45) sound.stopMusic();*/
     }
     sound.stopMusic();
     sound.stopEngine("test_audio");
