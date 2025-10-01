@@ -6,9 +6,11 @@
 #include "SD.h"
 #include "driver/i2s.h"
 #include <iostream>
-#include <list>
+#include <vector>
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "definitions.h"
+
 
 class AudioClip;
 
@@ -53,80 +55,77 @@ public:
 
     void playBackingUpBeep(bool isPlay);
 
-    void playMusic();    
+    void playMusic();
     void playNextMusic();
     void stopMusic();
     void playGearChange();
     void playGearChangeFail();
 
-
-
-
-   
-
+    
 
 private:
     void addClip(AudioClip *c);
-    void removeClip(AudioClip *c);
-
-    const String horn_filename[2] = {"/horn1.wav", "/horn2.wav"};
+    void removeClip();
+    
+    Index5 _hornIdx;
+    const String horn_filename[5] = {"/horn1.wav", "/horn2.wav" ,"/horn3.wav", "/horn4.wav", "/horn5.wav"};
 
     int _bclkPin, _lrclkPin, _dinPin;
     int _sd_sckPin, _sd_misoPin, _sd_mosiPin, _sd_csPin;
 
     volatile bool _engineOn_Req;
-    volatile bool _engineRuning_Req;
+    volatile bool _engineIdle_Req;
     volatile bool _blinkerOn_Req;
     volatile bool _backingUpOn_Req;
     volatile bool _hornOn;
     volatile bool _MusicOn_Req;
     volatile bool _MusicNext_Req;
+    volatile bool _cleanupClipList_Req  = false;
+
 
     volatile bool _gearChange_Req;
     volatile bool _gearChangeFail_Req;
-
     volatile uint16_t _engineRpm_Req;
+    float _volume = 0.5f; // master volume 0.0 to 1.0
 
-    std::list<AudioClip *> _clipList;
-    SemaphoreHandle_t clipMutex;
+    byte _samples[NUM_BYTES_TO_READ_FROM_FILE];
 
+    std::vector<AudioClip*> _clipList; 
+    std::vector<AudioClip*> _clipListNewAdd; 
+
+    
     Index5 _musicIdx;
     AudioClip *musicItem[5];
-
-    AudioClip *engineStartItem;
-    AudioClip *engineRuningItem;
-    AudioClip *engineStopItem;
-
+    AudioClip *fordMustangV8_StartItem;
+    AudioClip *fordMustangV8_IdleItem;    
+    AudioClip *fordMustangV8_Accel_1_Item;
+    AudioClip *fordMustangV8_Accel_2_Item;
+    AudioClip *fordMustangV8_EndItem;
     AudioClip *blinkerItem;
     AudioClip *backingUpBeepItem;
     AudioClip *gearChangeItem;
     AudioClip *gearChangeFailItem;
-    AudioClip *hornItem;
 
-    // AudioClip *blinkerStartItem;//todo
-    // AudioClip *blinkerEndItem;//todo
+    AudioClip *hornItem[2];
 
-    
     
 
     static void _soundControllerTask(void *param);
     void _soundControllerTask();
-    void _playAudioClipAndWaitForEnd(AudioClip * audio);
+    void _playAudioClipAndWaitForEnd(AudioClip *audio);
 
     static void _loopTask(void *param);
     void _loopTask();
-    
-    
-
 
     void serialPrint(const char *procName, const char *who);
 
-    static uint16_t Mix(byte *samples, std::list<AudioClip *> &items);
-    static bool hasActiveClips(const std::list<AudioClip *> &items);
+    uint16_t Mix(byte *samples);
+    bool hasActiveClips();
 
     static void clampSample(int32_t &mixedSample, int activeCount);
 
     static bool FillI2SBuffer(byte *Samples, uint16_t BytesInBuffer);
+    void _cleanupClips();
 };
 
 #endif // AUDIO_CLIP_CONTROLLER_H

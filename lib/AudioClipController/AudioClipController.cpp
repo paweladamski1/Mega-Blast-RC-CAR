@@ -8,9 +8,8 @@ AudioClipController::AudioClipController(int bclkPin, int lrclkPin, int dinPin,
     : _bclkPin(bclkPin), _lrclkPin(lrclkPin), _dinPin(dinPin),
       _engineOn_Req(false), _blinkerOn_Req(false), _hornOn(false), _engineRpm_Req(0),
       _sd_sckPin(_sd_sckPin), _sd_misoPin(_sd_misoPin), _sd_mosiPin(_sd_mosiPin), _sd_csPin(_sd_csPin),
-      _MusicOn_Req(false), _MusicNext_Req(false),_engineRuning_Req(false)
+      _MusicOn_Req(false), _MusicNext_Req(false), _engineIdle_Req(false)
 {
-    clipMutex = xSemaphoreCreateMutex();
 }
 
 void AudioClipController::begin()
@@ -52,40 +51,30 @@ void AudioClipController::begin()
             controller->playNextMusic();
         };
     }
+    blinkerItem = new AudioClip(this, "/blinker_runing.wav", 0.8f, true);
+    backingUpBeepItem = new AudioClip(this, "/backing_up_beep.wav", 0.5f, true);
 
-    // TODO:
-    // blinkerStartItem = new AudioClip(this, "/blinker_start.wav", 1.0f, true);
-    // blinkerEndItem   = new AudioClip(this, "/blinker_end.wav", 1.0f, true);
+    for (int i = 0; i < 5; i++)
+        hornItem[i] = new AudioClip(this, horn_filename[i], 0.6f, false);
 
-    blinkerItem = new AudioClip(this, "/blinker_runing.wav", 1.0f, true);
-    backingUpBeepItem = new AudioClip(this, "/backing_up_beep.wav", 1.0f, true);
+    fordMustangV8_StartItem = new AudioClip(this, "/1965FordMustangV8start.wav", 0.3f, false, 95.0f);
+    fordMustangV8_IdleItem = new AudioClip(this, "/1965FordMustangV8idle.wav", 0.4f, true, 100.0f);
+    fordMustangV8_EndItem = new AudioClip(this, "/1965FordMustangV8end.wav", 0.3f, false);
+    fordMustangV8_Accel_1_Item = new AudioClip(this, "/1965FordMustangV8accel1.wav", 0.7f);
+    fordMustangV8_Accel_2_Item = new AudioClip(this, "/1965FordMustangV8accel2.wav", 0.7f);
+    gearChangeItem = new AudioClip(this, "/gear_change.wav", 0.5f, false);
+    gearChangeFailItem = new AudioClip(this, "/gear_change_err.wav", 0.5f, false);
 
-    int choice = random(0, 2);
-    hornItem = new AudioClip(this, horn_filename[choice], 1.0f, false);
-    engineStartItem = new AudioClip(this, "/engine_start1.wav", 0.5f, false);
-    engineRuningItem = new AudioClip(this, "/engine_runing1.wav", 0.5f, true, 92.0f);
-    engineStopItem = new AudioClip(this, "/engine_stop1.wav", 0.5f, false);
-
-    gearChangeItem = new AudioClip(this, "/gear_change.wav", 1.0f, false);
-    gearChangeFailItem = new AudioClip(this, "/gear_change_err.wav", 1.0f, false);
-
-    engineStartItem->onEnd = [](AudioClip *sender, AudioClipController *controller)
+    fordMustangV8_StartItem->onEnd = [](AudioClip *sender, AudioClipController *controller)
     {
-        Serial.println("");
-        
-        controller->_engineRuning_Req=true;
+        controller->_engineIdle_Req = true;
     };
-
-    vTaskDelay(100);
-
-    Serial.println("");
     xTaskCreatePinnedToCore(_soundControllerTask, "_soundControllerTask", 4096, this, 1, NULL, 1);
     xTaskCreatePinnedToCore(_loopTask, "_loopTask", 4096, this, 1, NULL, 1);
 
     Serial.println("");
     Serial.println("AudioClipController::begin complete ");
 }
-
 
 void AudioClipController::_soundControllerTask()
 {
@@ -102,8 +91,6 @@ void AudioClipController::_soundControllerTask()
 
     Serial.println("_soundControllerTask start control.");
 
-    const int normdelay = 500;
-    int delay = normdelay;
     while (true)
     {
 
@@ -121,14 +108,15 @@ void AudioClipController::_soundControllerTask()
 
         if (_hornOn)
         {
-            _playAudioClipAndWaitForEnd(hornItem);
+            int choice = random(0, 5);
+            _playAudioClipAndWaitForEnd(hornItem[choice]);
             _hornOn = false;
         }
 
-        if (_engineRuning_Req)
+        if (_engineIdle_Req)
         {
-            _engineRuning_Req=false;
-            engineRuningItem->play();
+            _engineIdle_Req = false;
+            fordMustangV8_IdleItem->play();
         }
 
         if (_blinkerOn_Req && !blinkerOn_State)
@@ -140,10 +128,13 @@ void AudioClipController::_soundControllerTask()
 
         if (_engineOn_Req && !engineOn_State)
         {
-            serialPrint("_controller", "START ENGINE");
             engineOn_State = true;
-            if (!engineRuningItem->isPlaying())
-                engineStartItem->play();
+            if (!fordMustangV8_StartItem->isPlaying())
+            {
+                serialPrint("_controller", "START ENGINE");
+                // fordMustangV8_StartItem->setPlaybackRange((uint32_t)0, (uint32_t)178176);
+                fordMustangV8_StartItem->play();
+            }
         }
 
         if (_backingUpOn_Req && !backingUpOn_State)
@@ -179,9 +170,10 @@ void AudioClipController::_soundControllerTask()
         if (!_engineOn_Req && engineOn_State)
         {
             engineOn_State = _engineOn_Req;
-            engineStopItem->play();
-            vTaskDelay(500);            
-            engineRuningItem->stop();
+
+            fordMustangV8_EndItem->play();
+            vTaskDelay(500 / portTICK_PERIOD_MS);
+            fordMustangV8_IdleItem->stop();
         }
 
         if (!_blinkerOn_Req && blinkerOn_State)
@@ -204,31 +196,19 @@ void AudioClipController::_soundControllerTask()
 
         if (engineRpm_State != _engineRpm_Req)
         {
-            //serialPrint("_controller", "RPM");
-           // Serial.print(engineRpm_State);
-            // float speed = 1.0f + (engineRpm_State / 255.0f) * 1.2f;  // 1.0 → 2.2
-            float volume = 0.5f + (engineRpm_State / 255.0f) * 0.7f; // 0.3 → 1.0
-
-            //Serial.println();
-            Serial.print(" ");
-            Serial.print(volume);
-
-            // engineRuningItem->setSpeed(speed);
-            //  engineRuningItem->setVolume(volume);
-
-            // engineRpm_State = _engineRpm_Req;
             if (_engineRpm_Req > engineRpm_State)
-                engineRpm_State=_engineRpm_Req;
-            else
-                engineRpm_State--;
-
-            delay = 1;
+            {
+                int d = _engineRpm_Req - engineRpm_State;
+                if (d < 200)
+                    fordMustangV8_Accel_1_Item->play();
+                else
+                    fordMustangV8_Accel_2_Item->play();
+            }
+            engineRpm_State = _engineRpm_Req;
         }
-        vTaskDelay(delay);
+        vTaskDelay(250);
     }
 }
-
-
 
 void AudioClipController::playStartEngine(const char *who)
 {
@@ -249,13 +229,11 @@ void AudioClipController::setEngineRpm(const char *who, uint16_t rpm)
     if (_engineRpm_Req != rpm)
     {
         serialPrint("setEngineRpm", who);
-        
+        _engineRpm_Req = rpm;
+        Serial.print(" [r=");
+        Serial.print(rpm);
+        Serial.print(" ]");
     }
-
-    _engineRpm_Req = map(rpm, 0, 255, 0, 255);
-    Serial.print(" [r=");
-    Serial.print(rpm);
-    Serial.print(" ]");
 }
 
 void AudioClipController::playStartBlinker(const char *who)
@@ -315,38 +293,22 @@ void AudioClipController::playGearChangeFail()
 
 void AudioClipController::addClip(AudioClip *c)
 {
-    Serial.println("AudioClipController::addClip");
-    // if (xSemaphoreTake(clipMutex, portMAX_DELAY))
-    {
-        _clipList.push_back(c);
-        // xSemaphoreGive(clipMutex);
-    }
+    _clipListNewAdd.push_back(c);
+    _cleanupClipList_Req = true;
 }
 
-void AudioClipController::removeClip(AudioClip *c)
+void AudioClipController::removeClip()
 {
-    Serial.println("AudioClipController::removeClip");
-    // if (xSemaphoreTake(clipMutex, portMAX_DELAY))
-    {
-        size_t a = _clipList.size();
-        _clipList.remove(c);
-        size_t b = _clipList.size();
-        size_t x = a - b;
-
-        Serial.print("... Removed from list:");
-        Serial.print(x);
-        Serial.print("... size=");
-        Serial.print(b);
-        // xSemaphoreGive(clipMutex);
-    }
+    _cleanupClipList_Req = true;
 }
 
-bool AudioClipController::hasActiveClips(const std::list<AudioClip *> &items)
+bool AudioClipController::hasActiveClips()
 {
-    for (AudioClip *item : items)
+    for (AudioClip *item : _clipList)
     {
-        if (item->isBufferNotEmpty())
-            return true;
+        if (item->isPlaying())
+            if (item->isBufferNotEmpty())
+                return true;
     }
     return false;
 }
@@ -413,52 +375,36 @@ void AudioClipController::_playAudioClipAndWaitForEnd(AudioClip *audio)
     audio->play();
 
     while (audio->isPlaying())
-        vTaskDelay(1000);
+        vTaskDelay(10);
 }
 
 void AudioClipController::_loopTask(void *param)
 {
     auto *parent = static_cast<AudioClipController *>(param);
     Serial.println("_loopTask runing.");
-    vTaskDelay(5000);
+    // vTaskDelay(5000);
     while (true)
     {
         parent->_loopTask();
         vTaskDelay(1);
     }
+    Serial.println();
+    Serial.println("_________________________________________________________loopTask STOP!!!.");
 }
 
 void AudioClipController::_loopTask()
 {
-    if (!xSemaphoreTake(clipMutex, portMAX_DELAY))
-    {
-        vTaskDelay(5);
-        serialPrint("_loopTask", "mutex wait");
-        return;
-    }
-    bool _noPlaying = true;
 
-    for (AudioClip *item : _clipList)
-    {
-        if (item->isPlaying())
-        {
-            _noPlaying = false;
-            break;
-        }
-    }
-    if (_noPlaying)
-    {
-        vTaskDelay(1000);
+    _cleanupClips();
+    if (_clipList.empty())
         return;
-    }
 
-    static bool ReadingFile = true;
+    static bool ReadingFilePhase = true;
     static bool IsRead = true;
 
-    static byte Samples[NUM_BYTES_TO_READ_FROM_FILE];
-
     static uint16_t BytesReadFromFile;
-    if (ReadingFile) // Read next chunk of data in from files
+
+    if (ReadingFilePhase) // Read next chunk of data in from files
     {
         // Read data into the wavs own buffers
         IsRead = false;
@@ -467,41 +413,39 @@ void AudioClipController::_loopTask()
             if (item->read())
                 IsRead = true;
         }
+
         if (!IsRead)
-        {
-            vTaskDelay(1000);
             return;
-        }
-        BytesReadFromFile = Mix(Samples, _clipList); // Mix the samples together and store in the samples buffer
-        ReadingFile = false;                         // Switch to sending the buffer to the I2S
+
+        BytesReadFromFile = Mix(_samples); // Mix the samples together and store in the samples buffer
+        ReadingFilePhase = false;          // Switch to sending the buffer to the I2S
     }
     else
-        ReadingFile = FillI2SBuffer(Samples, BytesReadFromFile); // We keep calling this routine until it returns true, at which point
-    xSemaphoreGive(clipMutex);
+        ReadingFilePhase = FillI2SBuffer(_samples, BytesReadFromFile); // We keep calling this routine until it returns true, at which point
 }
 
-uint16_t AudioClipController::Mix(byte *samples, std::list<AudioClip *> &items)
+uint16_t AudioClipController::Mix(byte *samples)
 {
     // Mix all playing wavs together, returns the max bytes that are in the buffer, usually this would be the full buffer but
     // in rare cases wavs may be close to the end of the file and thus not fill the entire buffer
     int32_t mixedSample;       // The mixed sample
     uint16_t i;                // index into main samples buffer
     uint16_t MaxBytesInBuffer; // Max bytes of data in buffer, most of time buffer will be full
-    const float Volume = 0.3;
+                               //  const float Volume = 0.3;
     i = 0;
 
-    for (AudioClip *item : items)
+    for (AudioClip *item : _clipList)
         item->resetIdx();
 
     int activeCount = 0;
 
-    while (hasActiveClips(items))
+    while (hasActiveClips())
     {
         mixedSample = 0;
         activeCount = 0;
 
         // sum all samples
-        for (AudioClip *audio : items)
+        for (AudioClip *audio : _clipList)
         {
             if (audio->isReadyToMix())
             {
@@ -521,7 +465,7 @@ uint16_t AudioClipController::Mix(byte *samples, std::list<AudioClip *> &items)
     }
 
     MaxBytesInBuffer = 0;
-    for (AudioClip *audio : items)
+    for (AudioClip *audio : _clipList)
         if (audio->getBytesInBuffer() > MaxBytesInBuffer)
             MaxBytesInBuffer = audio->getBytesInBuffer();
 
@@ -530,8 +474,28 @@ uint16_t AudioClipController::Mix(byte *samples, std::list<AudioClip *> &items)
 
     //  We now alter the data according to the volume control
     for (i = 0; i < MaxBytesInBuffer; i += 2)
-        *((int16_t *)(samples + i)) = (*((int16_t *)(samples + i))) * Volume;
+        *((int16_t *)(samples + i)) = (*((int16_t *)(samples + i))) * _volume;
 
     return MaxBytesInBuffer;
 }
 
+void AudioClipController::_cleanupClips()
+{
+    if (_cleanupClipList_Req)
+    {
+        _cleanupClipList_Req = false;
+        _clipList.erase(
+            std::remove_if(_clipList.begin(), _clipList.end(),
+                           [](AudioClip *clip)
+                           {
+                               return !clip->isPlaying();
+                           }),
+            _clipList.end());
+    }
+
+    if (!_clipListNewAdd.empty())
+    {
+        _clipList.insert(_clipList.end(), _clipListNewAdd.begin(), _clipListNewAdd.end());
+        _clipListNewAdd.clear();
+    }
+}
