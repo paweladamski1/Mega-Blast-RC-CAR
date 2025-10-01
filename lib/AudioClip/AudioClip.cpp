@@ -1,5 +1,6 @@
 #include "AudioClip.h"
 #include "AudioClipController.h"
+#include <math.h>
 
 AudioClip::AudioClip(AudioClipController *controller,
                      const String &fileName,
@@ -25,7 +26,10 @@ AudioClip::AudioClip(AudioClipController *controller,
 void AudioClip::play()
 {
     if (_isPlaying)
+    {
+        serialPrint(" _isPlaying");
         return;
+    }
 
     if (!_load())
     {
@@ -33,10 +37,14 @@ void AudioClip::play()
         return;
     }
 
+    _callOnStart_event();
+
     if (_controller)
         _controller->addClip(this);
+
+    _setPlaybackRange();
     _wavFile.seek(44 + _wavStartReadPos);
-    _totalBytesRead = 0;
+
     _isPlaying = true;
     _progressPercent = 0;
     _isCallOnEnd = false;
@@ -48,11 +56,12 @@ void AudioClip::stop()
     if (!_isPlaying)
         return;
 
+    if (_controller)
+        _controller->removeClip();
     serialPrint(" stop()");
     _isPlaying = false;
     _isCallOnEnd = false;
     _wavFile.close();
-    _controller->removeClip(this);
 }
 
 bool AudioClip::read()
@@ -71,18 +80,14 @@ bool AudioClip::read()
     _wavFile.read(_samplesArr, _lastNumBytesRead); // Read in the bytes from the file
     _totalBytesRead += _lastNumBytesRead;          // Update the total bytes red in so far
 
-    _progressPercent = (float)_totalBytesRead / (float)_wavDataPlayEnd * 100.0f;
-
-    if (_progressPercent >= _callEndWhenPercent)
-        _callOnEnd_event();
-
     if (_totalBytesRead >= _wavDataPlayEnd) // Have we read in all the data?
     {
         if (Repeat)
         {
-            serialPrint("Repeat!");
+            _setPlaybackRange();
             _wavFile.seek(44 + _wavStartReadPos); // Reset to start of wav data
-            _totalBytesRead = 0;                  // Clear to no bytes read in so far
+            _totalBytesRead = _wavStartReadPos;   // Clear to no bytes read in so far
+            _callOnEnd_event();
         }
         else
         {
@@ -90,6 +95,11 @@ bool AudioClip::read()
             _callOnEnd_event();
         }
     }
+
+    _progressPercent = (float)_totalBytesRead / (float)_wavDataPlayEnd * 100.0f;
+    if (_progressPercent >= _callEndWhenPercent)
+        _callOnEnd_event();
+
     if (_lastNumBytesRead == 0)
         return false;
 
@@ -101,18 +111,76 @@ bool AudioClip::read()
     return _isPlaying;
 }
 
+void AudioClip::setPlaybackStart(uint32_t pos)
+{
+    if (pos != _wavStartReadPos_Req)
+    {
+        _wavStartReadPos_Req = pos;
+        _wavStartReadPos_ReqIsChange = true;
+    }
+}
+
+void AudioClip::setPlaybackEnd(uint32_t pos)
+{
+    if (pos != _wavDataPlayEnd_Req)
+    {
+        _wavDataPlayEnd_Req = pos;
+        _wavDataPlayEnd_ReqIsChange = true;
+    }
+}
+
 void AudioClip::setPlaybackRange(uint32_t start, uint32_t end)
 {
-    if (_wavDataSizeOryg > 0)
-    {
-        if (start > _wavDataSizeOryg)
-            start = 0;
+    setPlaybackStart(start);
+    setPlaybackEnd(end);
+}
 
-        if (end > _wavDataSizeOryg)
-            end = _wavDataSizeOryg;
+void AudioClip::setPlaybackStart(float seconds)
+{
+    uint32_t pos = 0;
+    if (seconds == 0)
+        pos = 0;
+    else
+        pos = _calcAlignedSamplePos(seconds, 22050);
+    setPlaybackStart(pos);
+}
+
+void AudioClip::setPlaybackEnd(float seconds)
+{
+    uint32_t pos = _wavDataSizeOryg;
+    if (seconds > 0)
+        pos = _calcAlignedSamplePos(seconds, 22050);
+    setPlaybackEnd(pos);
+}
+
+void AudioClip::setPlaybackRange(float start_in_seconds, float end_in_seconds)
+{
+    setPlaybackStart(start_in_seconds);
+    setPlaybackEnd(end_in_seconds);
+}
+
+void AudioClip::_setPlaybackRange()
+{
+    if (_wavStartReadPos_ReqIsChange)
+    {
+        _wavStartReadPos = _wavStartReadPos_Req;
+        _totalBytesRead = _wavStartReadPos_Req;
     }
-    _wavStartReadPos = start;
-    _wavDataPlayEnd = end;
+    else
+    {
+        _wavStartReadPos = 0;
+        _totalBytesRead = 0;
+    }
+
+    if (_wavDataPlayEnd_ReqIsChange)
+    {
+        _wavDataPlayEnd = _wavDataPlayEnd_Req;
+
+        if (_wavDataPlayEnd > _wavDataSizeOryg || _wavDataPlayEnd == 0)
+            _wavDataPlayEnd = _wavDataSizeOryg;
+    }
+    else
+        _wavDataPlayEnd = _wavDataSizeOryg;
 }
 
 void AudioClip::increaseVolume()
@@ -188,8 +256,6 @@ uint16_t AudioClip::getBytesInBuffer() const
 // PRIVATE
 bool AudioClip::_load()
 {
-    serialPrint("_load()");
-
     if (_wavFile)
         return true;
 
@@ -213,11 +279,7 @@ bool AudioClip::_load()
         Serial.println();
 
         _wavDataSizeOryg = WavHeader.DataSize; // Copy the data size into our wav structure
-        if (_wavDataPlayEnd == 0)
-            _wavDataPlayEnd = _wavDataSizeOryg;
-
-        if (_wavDataPlayEnd > _wavDataSizeOryg)
-            _wavDataPlayEnd = _wavDataSizeOryg;
+        _setPlaybackRange();
 
         return true;
     }
@@ -225,19 +287,19 @@ bool AudioClip::_load()
     return false;
 }
 
+void AudioClip::_callOnStart_event()
+{
+    if (onStart)
+        onStart(this, _controller);
+}
+
 void AudioClip::_callOnEnd_event()
 {
-    if (!_isCallOnEnd && !Repeat)
+    if (!_isCallOnEnd /*&& !Repeat*/)
     {
-
         _isCallOnEnd = true;
         if (onEnd)
-        {
-            serialPrint("onEnd");
             onEnd(this, _controller);
-        }
-        else
-            serialPrint("no event");
     }
 }
 
@@ -293,6 +355,7 @@ bool AudioClip::_validWavData(WavHeader_Struct *Wav)
 
 void AudioClip::_dumpWAVHeader(WavHeader_Struct *Wav)
 {
+    return;
     if (memcmp(Wav->RIFFSectionID, "RIFF", 4) != 0)
     {
         serialPrint("Not a RIFF format file - ");
@@ -320,7 +383,7 @@ void AudioClip::_dumpWAVHeader(WavHeader_Struct *Wav)
     // All looks good, dump the data
     serialPrint("Load success: Size:");
     Serial.print(Wav->Size);
-    Serial.print(" Format section size:");
+    (" Format section size:");
     Serial.print(Wav->FormatSize);
     Serial.print(" Wave format:");
     Serial.print(Wav->FormatID);
@@ -363,6 +426,13 @@ void AudioClip::serialPrint_fileHeader(const char *data, uint8_t NumBytes)
     for (uint8_t i = 0; i < NumBytes; i++)
         Serial.print(data[i]);
     Serial.println();
+}
+
+uint32_t AudioClip::_calcAlignedSamplePos(float seconds, uint32_t sampleRate)
+{
+    double value = (seconds * 2 * sampleRate) / 1024.0;
+    long aligned = (long)floor(value) * 1024;
+    return aligned;
 }
 
 AudioClip::~AudioClip()

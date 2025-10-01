@@ -7,11 +7,9 @@
 #include "driver/i2s.h"
 #include <iostream>
 #include <list>
+#include "definitions.h"
 
 class AudioClipController;
-
-// How many bytes to read from wav file at a time
-#define NUM_BYTES_TO_READ_FROM_FILE 1024
 
 /**
  * @file AudioClip.h
@@ -61,15 +59,26 @@ public:
     void play();
     void stop();
     bool read();
+    
+    
+    void setPlaybackStart(uint32_t pos);
+    void setPlaybackEnd(uint32_t pos);
     void setPlaybackRange(uint32_t start, uint32_t end);
+
+
+    void setPlaybackStart(float seconds);
+    void setPlaybackEnd(float seconds);
+    void setPlaybackRange(float start_in_seconds, float end_in_seconds);
 
     void increaseVolume();
     void decreaseVolume();
     void setVolume(float newVolume);
 
-    // events
+    /**************  EVENTS */
+
     // event fired when clip ends
     std::function<void(AudioClip *sender, AudioClipController *controller)> onEnd;
+    std::function<void(AudioClip *sender, AudioClipController *controller)> onStart;
 
     // check states
     bool isPlaying() const;
@@ -91,6 +100,12 @@ private:
     uint32_t _wavDataSizeOryg; // Size of wav file data
     uint32_t _wavDataPlayEnd;  // Size of wav file data - if
     uint32_t _wavStartReadPos = 0;
+
+    uint32_t _wavStartReadPos_Req = 0;
+    bool _wavStartReadPos_ReqIsChange = false;
+    uint32_t _wavDataPlayEnd_Req = 0;
+    bool _wavDataPlayEnd_ReqIsChange = false;
+
     bool _isPlaying = false; // Is file playing
 
     byte _samplesArr[NUM_BYTES_TO_READ_FROM_FILE]; // Buffer to store data red from file
@@ -110,11 +125,15 @@ private:
     bool _validWavData(WavHeader_Struct *Wav);
     void _dumpWAVHeader(WavHeader_Struct *Wav);
 
+    void _callOnStart_event();
     void _callOnEnd_event();
+    void _setPlaybackRange();
 
     void serialPrint(const char *data);                   // for debug
     void serialPrint(const char *data, const uint32_t n); // for debug
     void serialPrint_fileHeader(const char *Data, uint8_t NumBytes);
+
+    static uint32_t _calcAlignedSamplePos(float seconds, uint32_t sampleRate);
 };
 
 #endif
