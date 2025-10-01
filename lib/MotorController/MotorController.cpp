@@ -18,7 +18,7 @@ void MotorController::begin()
     pinMode(_pwmb, OUTPUT);
 
     pinMode(_stby, OUTPUT);
-    
+
     digitalWrite(_stby, HIGH);
     isStopFlag = true;
 }
@@ -41,15 +41,17 @@ void MotorController::drive(int throttle, int steering, int gear)
     int leftSpeed = constrain((throttle - _lSteering) + abs(_rSteering), 0, 255);
     int rightSpeed = constrain((throttle - _rSteering) + abs(_lSteering), 0, 255);
 
-    if(leftSpeed==0 and rightSpeed > 0)
-        leftSpeed=-rightSpeed;
+    if (throttle == 0)
+    {
+        if (leftSpeed == 0 and rightSpeed > 0)
+            leftSpeed = -rightSpeed;
 
-    if(rightSpeed==0 and leftSpeed > 0)
-        rightSpeed=-leftSpeed;
+        if (rightSpeed == 0 and leftSpeed > 0)
+            rightSpeed = -leftSpeed;
+    }
 
-
-    setMotor(_ain1, _ain2, _pwma, (gear>=0) ? leftSpeed : -leftSpeed);
-    setMotor(_bin1, _bin2, _pwmb, (gear>=0) ? rightSpeed : -rightSpeed);
+    setMotor(_ain1, _ain2, _pwma, (gear >= 0) ? leftSpeed : -leftSpeed);
+    setMotor(_bin1, _bin2, _pwmb, (gear >= 0) ? rightSpeed : -rightSpeed);
 }
 
 void MotorController::stop()
@@ -59,12 +61,11 @@ void MotorController::stop()
     isStopFlag = true;
     setMotor(_ain1, _ain2, _pwma, 0);
     setMotor(_bin1, _bin2, _pwmb, 0);
-
 }
 
 void MotorController::startEngine()
 {
-    digitalWrite(_stby, HIGH);    
+    digitalWrite(_stby, HIGH);
 }
 
 void MotorController::setMotor(int in1, int in2, int pwmPin, int speed)
@@ -85,16 +86,16 @@ void MotorController::setMotor(int in1, int in2, int pwmPin, int speed)
     digitalWrite(in2, in2Data);
     speed = constrain(speed, -MAX_SAFE_PWM, MAX_SAFE_PWM);
 
-   /*Serial.print("      in1:");
-    Serial.print(in1Data);
+    /*Serial.print("      in1:");
+     Serial.print(in1Data);
 
-    Serial.print(" in2:");
-    Serial.print(in2Data);
+     Serial.print(" in2:");
+     Serial.print(in2Data);
 
-    Serial.print(" speed:");
-    Serial.print(speed);
-    if (in1 == _bin1)    
-        Serial.println("");*/
-        
+     Serial.print(" speed:");
+     Serial.print(speed);
+     if (in1 == _bin1)
+         Serial.println("");*/
+
     analogWrite(pwmPin, abs(speed));
 }
