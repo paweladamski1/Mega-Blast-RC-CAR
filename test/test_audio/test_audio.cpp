@@ -22,7 +22,7 @@ void test_controller_play(void)
         Serial.println("");
         Serial.println(t);
         if (t == 15)
-            sound.stopEngine(who);
+            sound.playStopEngine(who);
 
         if (t == 25)
             sound.playStartEngine("test_audio");
@@ -41,7 +41,7 @@ void test_controller_play(void)
             sound.setEngineRpm(who, 0);
 
         if (t == 58)
-            sound.stopEngine(who);
+            sound.playStopEngine(who);
 
         // events
         /*  if(t==15)  sound.playHorn(who);
@@ -53,7 +53,7 @@ void test_controller_play(void)
           if(t==45) sound.stopMusic();*/
     }
     sound.stopMusic();
-    sound.stopEngine("test_audio");
+    sound.playStopEngine("test_audio");
     TEST_ASSERT_TRUE(true);
 }
 
