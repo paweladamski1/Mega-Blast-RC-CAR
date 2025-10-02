@@ -12,7 +12,8 @@
 #include "definitions.h"
 
 
-class AudioClip;
+
+class AudioClip; 
 
 struct Index5
 {
@@ -45,7 +46,7 @@ public:
     void begin();
 
     void playStartEngine(const char *who);
-    void stopEngine(const char *who);
+    void playStopEngine(const char *who);
     void setEngineRpm(const char *who, uint16_t rpm);
 
     void playStartBlinker(const char *who);
@@ -106,7 +107,7 @@ private:
     AudioClip *gearChangeItem;
     AudioClip *gearChangeFailItem;
 
-    AudioClip *hornItem[2];
+    AudioClip *hornItem[5];
 
     
 

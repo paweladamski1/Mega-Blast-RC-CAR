@@ -88,7 +88,7 @@ void test_sound()
       sound.playStartEngine("main");
       break;
     case 's':
-      sound.stopEngine("main");
+      sound.playStopEngine("main");
       break;
     case 'b':
       sound.playStartBlinker("main");

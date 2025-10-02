@@ -217,7 +217,7 @@ void AudioClipController::playStartEngine(const char *who)
     _engineOn_Req = true;
 }
 
-void AudioClipController::stopEngine(const char *who)
+void AudioClipController::playStopEngine(const char *who)
 {
     if (_engineOn_Req)
         serialPrint("stopEngine", who);
