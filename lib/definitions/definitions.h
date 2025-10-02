@@ -43,4 +43,23 @@
 // File handling
 #define NUM_BYTES_TO_READ_FROM_FILE 1024 // Number of bytes to read from file at once
 
+// Gamepad button definitions
+#define DPAD_ARROW_UP 0x0001
+#define DPAD_ARROW_DOWN 0x0002
+#define DPAD_ARROW_RIGHT 0x0004
+#define DPAD_ARROW_LEFT 0x0008
+#define PS4_BTN 0x01
+#define PS4_L1 0x0010
+#define PS4_R1 0x0020
+
+// structure
+struct SControlData
+{
+    int momentum; // 0 to 255
+    int steering; // -100 to 100
+    bool brake;
+    int gear;
+};
+
+
 #endif // DEFINITIONS_H
