@@ -56,10 +56,39 @@ def mega_test_audio(source, target, env):
     print(">>> Starting Remote Device Monitor in new console...")
     run_command("platformio remote device monitor")
 
+def remote_monitor(source, target, env):
+    run_command("echo Remote Monitor")
+    
+    # 0. kill if exists
+    print(">>> kill cmd pio_remote_agent")
+    kill_pio_remote_agent()
+
+    # 1. Build + Upload
+    print(">>> Building & Uploading firmware...")
+    run_command("platformio run --target upload --environment esp32doit-devkit-v1 --upload-port COM5")
+    
+    # 3. Start PlatformIO Remote Agent (new console)
+    print(">>> Starting PlatformIO Remote Agent in new console...")
+    run_command("platformio remote agent start", new_console=True)
+
+    # 4. Start Remote Device Monitor (new console)
+    print(">>> Starting Remote Device Monitor in new console...")
+    run_command("platformio remote device monitor")
+
+
 env.AddCustomTarget( # type: ignore
     name="mega_test_audio",
     dependencies=None,
     actions=[mega_test_audio],
     title="Mega Test Audio",
     description="Build+upload, run test, start remote agent and monitor"
+)
+
+
+env.AddCustomTarget( # type: ignore
+    name="remote_monitor",
+    dependencies=None,
+    actions=[remote_monitor],
+    title="Remote Monitor",
+    description="Build+upload, start remote agent and monitor"
 )
