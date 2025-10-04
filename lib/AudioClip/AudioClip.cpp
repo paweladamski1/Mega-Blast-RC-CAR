@@ -17,7 +17,7 @@ AudioClip::AudioClip(AudioClipController *controller,
 {
     Repeat = repeat;
     _isPlaying = false;
-    serialPrint(" AudioClip::AudioClip constructor ");
+    _serialPrint(" AudioClip::AudioClip constructor ");
 
     if (repeat)
         _load();
@@ -27,13 +27,13 @@ void AudioClip::play()
 {
     if (_isPlaying)
     {
-        serialPrint(" _isPlaying");
+        _serialPrint(" _isPlaying");
         return;
     }
 
     if (!_load())
     {
-        serialPrint(" can't load file");
+        _serialPrint(" can't load file");
         return;
     }
 
@@ -48,7 +48,7 @@ void AudioClip::play()
     _isPlaying = true;
     _progressPercent = 0;
     _isCallOnEnd = false;
-    serialPrint(" play()");
+    _serialPrint(" play()");
 }
 
 void AudioClip::stop()
@@ -58,7 +58,7 @@ void AudioClip::stop()
 
     if (_controller)
         _controller->removeClip();
-    serialPrint(" stop()");
+    _serialPrint(" stop()");
     _isPlaying = false;
     _isCallOnEnd = false;
     _wavFile.close();
@@ -275,7 +275,7 @@ bool AudioClip::_load()
                                            // We have to typecast to bytes for the "read" function
     if (_validWavData(&WavHeader))
     {
-        _dumpWAVHeader(&WavHeader); // Dump the header data to serial, optional!
+        _serialPrint_dumpWAVHeader(&WavHeader); // Dump the header data to serial, optional!
         Serial.println();
 
         _wavDataSizeOryg = WavHeader.DataSize; // Copy the data size into our wav structure
@@ -283,7 +283,7 @@ bool AudioClip::_load()
 
         return true;
     }
-    serialPrint(".. fail");
+    _serialPrint(".. fail");
     return false;
 }
 
@@ -307,81 +307,81 @@ bool AudioClip::_validWavData(WavHeader_Struct *Wav)
 {
     if (memcmp(Wav->RIFFSectionID, "RIFF", 4) != 0)
     {
-        serialPrint("Invalid data - Not RIFF format");
+        _serialPrint("Invalid data - Not RIFF format");
         return false;
     }
     if (memcmp(Wav->RiffFormat, "WAVE", 4) != 0)
     {
-        serialPrint("Invalid data - Not Wave file");
+        _serialPrint("Invalid data - Not Wave file");
         return false;
     }
     if (memcmp(Wav->FormatSectionID, "fmt", 3) != 0)
     {
-        serialPrint("Invalid data - No format section found");
+        _serialPrint("Invalid data - No format section found");
         return false;
     }
     if (memcmp(Wav->DataSectionID, "data", 4) != 0)
     {
-        serialPrint("Invalid data - data section not found");
+        _serialPrint("Invalid data - data section not found");
         return false;
     }
     if (Wav->FormatID != 1)
     {
-        serialPrint("Invalid data - format Id must be 1");
+        _serialPrint("Invalid data - format Id must be 1");
         return false;
     }
     if (Wav->FormatSize != 16)
     {
-        serialPrint("Invalid data - format section size must be 16.");
+        _serialPrint("Invalid data - format section size must be 16.");
         return false;
     }
     if ((Wav->NumChannels != 1) & (Wav->NumChannels != 2))
     {
-        serialPrint("Invalid data - only mono or stereo permitted.");
+        _serialPrint("Invalid data - only mono or stereo permitted.");
         return false;
     }
     if (Wav->SampleRate > 48000)
     {
-        serialPrint("Invalid data - Sample rate cannot be greater than 48000");
+        _serialPrint("Invalid data - Sample rate cannot be greater than 48000");
         return false;
     }
     if ((Wav->BitsPerSample != 8) & (Wav->BitsPerSample != 16))
     {
-        serialPrint("Invalid data - Only 8 or 16 bits per sample permitted.");
+        _serialPrint("Invalid data - Only 8 or 16 bits per sample permitted.");
         return false;
     }
     return true;
 }
 
-void AudioClip::_dumpWAVHeader(WavHeader_Struct *Wav)
+void AudioClip::_serialPrint_dumpWAVHeader(WavHeader_Struct *Wav)
 {
-    return;
+#ifdef DEBUG
     if (memcmp(Wav->RIFFSectionID, "RIFF", 4) != 0)
     {
-        serialPrint("Not a RIFF format file - ");
-        serialPrint_fileHeader(Wav->RIFFSectionID, 4);
+        _serialPrint("Not a RIFF format file - ");
+        _serialPrint_fileHeader(Wav->RIFFSectionID, 4);
         return;
     }
     if (memcmp(Wav->RiffFormat, "WAVE", 4) != 0)
     {
-        serialPrint("Not a WAVE file - ");
-        serialPrint_fileHeader(Wav->RiffFormat, 4);
+        _serialPrint("Not a WAVE file - ");
+        _serialPrint_fileHeader(Wav->RiffFormat, 4);
         return;
     }
     if (memcmp(Wav->FormatSectionID, "fmt", 3) != 0)
     {
-        serialPrint("fmt ID not present - ");
-        serialPrint_fileHeader(Wav->FormatSectionID, 3);
+        _serialPrint("fmt ID not present - ");
+        _serialPrint_fileHeader(Wav->FormatSectionID, 3);
         return;
     }
     if (memcmp(Wav->DataSectionID, "data", 4) != 0)
     {
-        serialPrint("data ID not present - ");
-        serialPrint_fileHeader(Wav->DataSectionID, 4);
+        _serialPrint("data ID not present - ");
+        _serialPrint_fileHeader(Wav->DataSectionID, 4);
         return;
     }
     // All looks good, dump the data
-    serialPrint("Load success: Size:");
+    _serialPrint("Load success: Size:");
     Serial.print(Wav->Size);
     (" Format section size:");
     Serial.print(Wav->FormatSize);
@@ -399,19 +399,23 @@ void AudioClip::_dumpWAVHeader(WavHeader_Struct *Wav)
     Serial.print(Wav->BitsPerSample);
     Serial.print(" data Size:");
     Serial.print(Wav->DataSize);
+#endif
 }
 
-void AudioClip::serialPrint(const char *data)
+void AudioClip::_serialPrint(const char *data)
 {
+#ifdef DEBUG
     Serial.println();
     Serial.print(_id);
     Serial.print(" ");
     Serial.print(data);
     Serial.print(" ");
+#endif
 }
 
-void AudioClip::serialPrint(const char *data, const uint32_t n)
+void AudioClip::_serialPrint(const char *data, const uint32_t n)
 {
+#ifdef DEBUG
     Serial.println();
     Serial.print(data);
     Serial.print(" ");
@@ -419,13 +423,16 @@ void AudioClip::serialPrint(const char *data, const uint32_t n)
     Serial.print(" ");
     Serial.print(n);
     Serial.print(" ");
+#endif
 }
 
-void AudioClip::serialPrint_fileHeader(const char *data, uint8_t NumBytes)
+void AudioClip::_serialPrint_fileHeader(const char *data, uint8_t NumBytes)
 {
+#ifdef DEBUG
     for (uint8_t i = 0; i < NumBytes; i++)
         Serial.print(data[i]);
     Serial.println();
+#endif
 }
 
 uint32_t AudioClip::_calcAlignedSamplePos(float seconds, uint32_t sampleRate)

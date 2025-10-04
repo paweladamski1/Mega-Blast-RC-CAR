@@ -122,16 +122,16 @@ private:
 
     bool _load();
 
-    bool _validWavData(WavHeader_Struct *Wav);
-    void _dumpWAVHeader(WavHeader_Struct *Wav);
+    static bool _validWavData(WavHeader_Struct *Wav);
+    void _serialPrint_dumpWAVHeader(WavHeader_Struct *Wav);
 
     void _callOnStart_event();
     void _callOnEnd_event();
     void _setPlaybackRange();
 
-    void serialPrint(const char *data);                   // for debug
-    void serialPrint(const char *data, const uint32_t n); // for debug
-    void serialPrint_fileHeader(const char *Data, uint8_t NumBytes);
+    static void _serialPrint(const char *data);                   // for debug
+    static void _serialPrint(const char *data, const uint32_t n); // for debug
+    static void _serialPrint_fileHeader(const char *Data, uint8_t NumBytes);
 
     static uint32_t _calcAlignedSamplePos(float seconds, uint32_t sampleRate);
 };
