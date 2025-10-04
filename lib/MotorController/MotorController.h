@@ -2,25 +2,26 @@
 #define MOTORCONTROLLER_H
 
 #include <Arduino.h>
+#include "definitions.h"
  
 class MotorController {
 public:
-    MotorController(int ain1, int ain2, int pwma,
-                    int bin1, int bin2, int pwmb,
-                    int stby);
+    MotorController(uint8_t ain1, uint8_t ain2, uint8_t pwma,
+                    uint8_t bin1, uint8_t bin2, uint8_t pwmb,
+                    uint8_t stby);
 
     void begin();
-    void drive(int throttle, int steering, int gear); // throttle: -255 to 255, steering: -100 to 100
-    void stop();
+    void drive(SControlData & controlData);
+    void stopEngine();
     void startEngine();
 
 private:
-    void setMotor(int in1, int in2, int pwmPin, int speed);
+    static void _setMotor(uint8_t in1, uint8_t in2, uint8_t pwmPin, int speed);
 
-    int _ain1, _ain2, _pwma;
-    int _bin1, _bin2, _pwmb;
-    int _stby;
-    bool isStopFlag;
+    uint8_t _ain1, _ain2, _pwma;
+    uint8_t _bin1, _bin2, _pwmb;
+    uint8_t _stby;
+    bool _isRunningState;
 };
 
 #endif
