@@ -45,14 +45,14 @@ public:
 
     void begin();
 
-    void playStartEngine(const char *who);
-    void playStopEngine(const char *who);
-    void setEngineRpm(const char *who, uint16_t rpm);
+    void playStartEngine();
+    void playStopEngine();
+    void setEngineRpm( uint16_t rpm);
 
-    void playStartBlinker(const char *who);
-    void stopBlinker(const char *who);
+    void playStartBlinker();
+    void stopBlinker();
 
-    void playHorn(const char *who);
+    void playHorn();
 
     void playBackingUpBeep(bool isPlay);
 
@@ -107,9 +107,7 @@ private:
     AudioClip *gearChangeItem;
     AudioClip *gearChangeFailItem;
 
-    AudioClip *hornItem[5];
-
-    
+    AudioClip *hornItem[5]; 
 
     static void _soundControllerTask(void *param);
     void _soundControllerTask();
@@ -118,7 +116,7 @@ private:
     static void _loopTask(void *param);
     void _loopTask();
 
-    void serialPrint(const char *procName, const char *who);
+    void _serialPrint(const char *procName, const char *who);
 
     uint16_t Mix(byte *samples);
     bool hasActiveClips();

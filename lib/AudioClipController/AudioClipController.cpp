@@ -76,10 +76,16 @@ void AudioClipController::begin()
     Serial.println("AudioClipController::begin complete ");
 }
 
-void AudioClipController::_soundControllerTask()
+void AudioClipController::_soundControllerTask(void *param)
 {
-    Serial.println("_soundControllerTask runing.");
-    bool isEnginStarted = false;
+    Serial.println("_soundControllerTask running.");
+    auto *parent = static_cast<AudioClipController *>(param);    
+    parent->_soundControllerTask();
+}
+
+void AudioClipController::_soundControllerTask()
+{    
+    static int hornChoice = random(0, 5);    
     bool isAddedQueueFlag = false;
 
     bool engineOn_State = _engineOn_Req;
@@ -88,9 +94,6 @@ void AudioClipController::_soundControllerTask()
     bool _MusicOn_State = _MusicOn_Req;
 
     int engineRpm_State = _engineRpm_Req;
-
-    Serial.println("_soundControllerTask start control.");
-
     while (true)
     {
 
@@ -108,8 +111,9 @@ void AudioClipController::_soundControllerTask()
 
         if (_hornOn)
         {
-            int choice = random(0, 5);
-            _playAudioClipAndWaitForEnd(hornItem[choice]);
+            hornItem[hornChoice]->stop();
+             hornChoice = random(0, 5);
+            hornItem[hornChoice]->play();
             _hornOn = false;
         }
 
@@ -121,7 +125,7 @@ void AudioClipController::_soundControllerTask()
 
         if (_blinkerOn_Req && !blinkerOn_State)
         {
-            serialPrint("_controller", "START BLINKER");
+            _serialPrint("_controller", "START BLINKER");
             blinkerOn_State = true;
             blinkerItem->play();
         }
@@ -131,7 +135,7 @@ void AudioClipController::_soundControllerTask()
             engineOn_State = true;
             if (!fordMustangV8_StartItem->isPlaying())
             {
-                serialPrint("_controller", "START ENGINE");
+                _serialPrint("_controller", "START ENGINE");
                 // fordMustangV8_StartItem->setPlaybackRange((uint32_t)0, (uint32_t)178176);
                 fordMustangV8_StartItem->play();
             }
@@ -140,7 +144,7 @@ void AudioClipController::_soundControllerTask()
         if (_backingUpOn_Req && !backingUpOn_State)
         {
 
-            serialPrint("_controller", "Backing Up Beep On");
+            _serialPrint("_controller", "Backing Up Beep On");
             backingUpOn_State = true;
             if (!backingUpBeepItem->isPlaying())
                 backingUpBeepItem->play();
@@ -148,7 +152,7 @@ void AudioClipController::_soundControllerTask()
 
         if (_MusicOn_Req && !_MusicOn_State)
         {
-            serialPrint("_controller", "Music on");
+            _serialPrint("_controller", "Music on");
             _MusicOn_State = true;
             if (!musicItem[_musicIdx.value]->isPlaying())
                 musicItem[_musicIdx.value]->play();
@@ -156,7 +160,7 @@ void AudioClipController::_soundControllerTask()
 
         if (_MusicNext_Req)
         {
-            serialPrint("_controller", "NEXT Music");
+            _serialPrint("_controller", "NEXT Music");
             _MusicNext_Req = false;
             if (musicItem[_musicIdx.value]->isPlaying())
                 musicItem[_musicIdx.value]->stop();
@@ -199,36 +203,31 @@ void AudioClipController::_soundControllerTask()
             if (_engineRpm_Req > engineRpm_State)
             {
                 int d = _engineRpm_Req - engineRpm_State;
-                if (d < 200)
+                if (d < 600)
                     fordMustangV8_Accel_1_Item->play();
                 else
                     fordMustangV8_Accel_2_Item->play();
             }
             engineRpm_State = _engineRpm_Req;
         }
-        vTaskDelay(250);
+        vTaskDelay(100 / portTICK_PERIOD_MS);
     }
 }
 
-void AudioClipController::playStartEngine(const char *who)
-{
-    if (!_engineOn_Req)
-        serialPrint("startEngine", who);
+void AudioClipController::playStartEngine()
+{  
     _engineOn_Req = true;
 }
 
-void AudioClipController::playStopEngine(const char *who)
-{
-    if (_engineOn_Req)
-        serialPrint("stopEngine", who);
+void AudioClipController::playStopEngine()
+{ 
     _engineOn_Req = false;
 }
 
-void AudioClipController::setEngineRpm(const char *who, uint16_t rpm)
+void AudioClipController::setEngineRpm(uint16_t rpm)
 {
     if (_engineRpm_Req != rpm)
-    {
-        serialPrint("setEngineRpm", who);
+    {      
         _engineRpm_Req = rpm;
         Serial.print(" [r=");
         Serial.print(rpm);
@@ -236,28 +235,18 @@ void AudioClipController::setEngineRpm(const char *who, uint16_t rpm)
     }
 }
 
-void AudioClipController::playStartBlinker(const char *who)
+void AudioClipController::playStartBlinker()
 {
-    if (!_blinkerOn_Req)
-        serialPrint("startBlinker", who);
-
     _blinkerOn_Req = true;
 }
 
-void AudioClipController::stopBlinker(const char *who)
+void AudioClipController::stopBlinker()
 {
-    if (_blinkerOn_Req)
-        serialPrint("stopBlinker", who);
-
     _blinkerOn_Req = false;
 }
 
-void AudioClipController::playHorn(const char *who)
+void AudioClipController::playHorn()
 {
-    Serial.println("AudioClipController::playHorn()");
-    Serial.print(who);
-    Serial.print(" ");
-    Serial.print(_hornOn);
     _hornOn = true;
 }
 
@@ -353,22 +342,19 @@ bool AudioClipController::FillI2SBuffer(byte *Samples, uint16_t BytesInBuffer)
         return false; // Still more data to send to I2S so return false to indicate this
 }
 
-void AudioClipController::serialPrint(const char *procName, const char *who)
+void AudioClipController::_serialPrint(const char *procName, const char *who)
 {
+#ifdef DEBUG  
     Serial.println();
     Serial.print(" >>> AudioClipController:");
     Serial.print(procName);
     Serial.print(" called from: ");
     Serial.print(who);
     Serial.println();
+#endif
 }
 
-void AudioClipController::_soundControllerTask(void *param)
-{
-    auto *parent = static_cast<AudioClipController *>(param);
-    Serial.println("_soundControllerTask runing.");
-    parent->_soundControllerTask();
-}
+
 
 void AudioClipController::_playAudioClipAndWaitForEnd(AudioClip *audio)
 {
@@ -394,7 +380,6 @@ void AudioClipController::_loopTask(void *param)
 
 void AudioClipController::_loopTask()
 {
-
     _cleanupClips();
     if (_clipList.empty())
         return;
