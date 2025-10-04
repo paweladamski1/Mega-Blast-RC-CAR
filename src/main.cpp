@@ -82,31 +82,31 @@ void test_sound()
     switch (c)
     {
     case 'h':
-      sound.playHorn("main");
+      sound.playHorn();
       break;
     case 'e':
-      sound.playStartEngine("main");
+      sound.playStartEngine();
       break;
     case 's':
-      sound.playStopEngine("main");
+      sound.playStopEngine();
       break;
     case 'b':
-      sound.playStartBlinker("main");
+      sound.playStartBlinker();
       break;
     case 'x':
-      sound.stopBlinker("main");
+      sound.stopBlinker();
       break;
     case 'r':
       sampleRate = sampleRate - 100;
       Serial.println("new rate = ");
       Serial.print(sampleRate);
-      sound.setEngineRpm("main", sampleRate);
+      sound.setEngineRpm( sampleRate);
       break;
     case 'q':
       sampleRate = sampleRate + 500;
       Serial.println("new rate = ");
       Serial.print(sampleRate);
-      sound.setEngineRpm("main", sampleRate);
+      sound.setEngineRpm( sampleRate);
       break;
     }
   }
