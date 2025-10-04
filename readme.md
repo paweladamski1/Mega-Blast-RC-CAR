@@ -2,7 +2,10 @@
 
 The project was created to bring back to life a toy found by the trash; the original electronics were removed, a 3D-printed enclosure with component mounts was made, and all parts were soldered using the cheapest approach with single-sided universal PCBs.
 
-![s-l1200](https://github.com/user-attachments/assets/40be38f9-3fd7-4220-8dcf-e6e5ef741ffc)
+<img width="1681" height="825" alt="obraz" src="https://github.com/user-attachments/assets/e7bc247d-2bce-4166-b0a2-c280a41826d9" />
+<img width="611" height="433" alt="obraz" src="https://github.com/user-attachments/assets/415d35ab-5016-4fa1-ba8d-cadb86dbe5c5" />
+
+
 
 Remote-controlled car project using **ESP32**, **dual TB6612FNG motors**, and **PS4 controller** via Bluetooth. Includes LEDs, audio feedback, and safe battery management.
 
