@@ -65,13 +65,13 @@ void LightLedController::_indicatorTask()
     {
         leftIndicatorOn_State = true;
         digitalWrite(PIN_LEFT_INDICATOR, true);
-        sound.playStartBlinker("LightLedController - left indicator ON");
+        sound.playStartBlinker();
     }
     if (_rightIndicatorOn)
     {
         rightIndicatorOn_State = true;
         digitalWrite(PIN_RIGHT_INDICATOR, true);
-        sound.playStartBlinker("LightLedController - right indicator ON");
+        sound.playStartBlinker();
     }
 
     vTaskDelay(_blinkInterval);
@@ -87,7 +87,7 @@ void LightLedController::_indicatorTask()
     if ((!_leftIndicatorOn && leftIndicatorOn_State) || (!_rightIndicatorOn && rightIndicatorOn_State))
     {
         if (!_leftIndicatorOn && !_rightIndicatorOn)
-            sound.stopBlinker("LightLedController - right or left indicator OFF");
+            sound.stopBlinker();
 
         leftIndicatorOn_State = _leftIndicatorOn;
         rightIndicatorOn_State = _rightIndicatorOn;
