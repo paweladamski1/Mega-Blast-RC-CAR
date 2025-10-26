@@ -23,7 +23,7 @@ BluePad32Controller pad(lights, sound);
  */
 int sampleRate;
 void setup()
-{
+{   
   Serial.begin(9600);
   sampleRate = 24000;
 
@@ -49,65 +49,8 @@ void setup()
 
 const int timeout = 80000;
 void loop()
-{
-  test_sound();
-  if (PowerManager::isCharging())
-  {
-    Serial.println("Charging....");
-    delay(1000);
-    return;
-  }
+{   
   pad.loop(motor);
   delay(50);
 }
 
-void test_sound()
-{
-  if (Serial.available())
-  {
-    // Display test mode information
-    Serial.println("=== TEST MODE - Sound Control ===");
-    Serial.println("Commands:");
-    Serial.println("h - Play horn");
-    Serial.println("e - Start engine");
-    Serial.println("s - Stop engine");
-    Serial.println("b - Start blinker");
-    Serial.println("x - Stop blinker");
-    Serial.println("r - Set RPM --100");
-    Serial.println("q - Set RPM ++100");
-    Serial.println("=================================");
-    char c = Serial.read();
-    Serial.println(c);
-
-    switch (c)
-    {
-    case 'h':
-      sound.playHorn();
-      break;
-    case 'e':
-      sound.playStartEngine();
-      break;
-    case 's':
-      sound.playStopEngine();
-      break;
-    case 'b':
-      sound.playStartBlinker();
-      break;
-    case 'x':
-      sound.stopBlinker();
-      break;
-    case 'r':
-      sampleRate = sampleRate - 100;
-      Serial.println("new rate = ");
-      Serial.print(sampleRate);
-      sound.setEngineRpm( sampleRate);
-      break;
-    case 'q':
-      sampleRate = sampleRate + 500;
-      Serial.println("new rate = ");
-      Serial.print(sampleRate);
-      sound.setEngineRpm( sampleRate);
-      break;
-    }
-  }
-}
