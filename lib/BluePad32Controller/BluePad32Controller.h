@@ -16,7 +16,9 @@ public:
     void begin();
     void loop(MotorController &motor);
 
-    
+    void onJustDisconnected(bool &IsConnectFlag, MotorController &motor);
+
+    void onJustConnected(bool &IsConnectFlag, MotorController &motor);
 
 private:
     LightLedController &lights;
@@ -25,8 +27,6 @@ private:
 
     static void onConnected(GamepadPtr gp);
     static void onDisconnected(GamepadPtr gp);
-
-
 
     void updateControlData();
     void onAcceleratingAction(int throttle);
@@ -46,6 +46,9 @@ private:
 
     bool isConnected();
     static GamepadPtr gamepad;
+    
+    int32_t _throttle = 0;
+    int32_t _brakeForce = 0;
     
     SControlData ControlData;  
 };
