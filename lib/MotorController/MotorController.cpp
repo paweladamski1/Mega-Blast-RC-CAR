@@ -55,14 +55,14 @@ void MotorController::drive(SControlData &controlData)
     int leftSpeed = constrain((momentum - _lSteering) + abs(_rSteering), 0, 255);
     int rightSpeed = constrain((momentum - _rSteering) + abs(_lSteering), 0, 255);
 
-    if (momentum == 0)
+   /*if (momentum == 0)
     {
         if (leftSpeed == 0 and rightSpeed > 0)
             leftSpeed = -rightSpeed;
 
         if (rightSpeed == 0 and leftSpeed > 0)
             rightSpeed = -leftSpeed;
-    }
+    }*/
 
     Serial.printf("AIN1=%d, AIN2=%d, PWMA=%d, BIN1=%d, BIN2=%d, PWMB=%d, STBY=%d\n",
               _ain1, _ain2, _pwma, _bin1, _bin2, _pwmb, _stby);
