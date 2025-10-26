@@ -1,72 +1,90 @@
-# RC MegaBlast - Dual Motor Control System with PS4 Controller (ESP32)
+# 🚗 RC MegaBlast - Dual Motor RC Car with PS4 Controller (ESP32)
 
-This is an open-source project for building a remote-controlled vehicle using an **ESP32 DevKit v4**, dual-motor driver (**TB6612FNG**), and a **PS4 controller** via Bluetooth. The system is powered by **3x 18650 Li-Ion cells** with charging and power protection modules.
+The project was created to bring back to life a toy found by the trash; the original electronics were removed, a 3D-printed enclosure with component mounts was made, and all parts were soldered using the cheapest approach with single-sided universal PCBs.
 
-## 🔧 Features
+<img width="1681" height="825" alt="obraz" src="https://github.com/user-attachments/assets/e7bc247d-2bce-4166-b0a2-c280a41826d9" />
+<img width="611" height="433" alt="obraz" src="https://github.com/user-attachments/assets/415d35ab-5016-4fa1-ba8d-cadb86dbe5c5" />
 
-- Full-speed motor control using analog trigger (R2)
-- Directional steering using analog stick (left/right)
-- Brake function with L2
-- LED control for headlights and position lights
-- PS4 controller rumble and LED feedback
-- Safe power delivery and battery charging
+
+
+Remote-controlled car project using **ESP32**, **dual TB6612FNG motors**, and **PS4 controller** via Bluetooth. Includes LEDs, audio feedback, and safe battery management.
+
+---
+## 🔧 Key Features
+
+- 🎮 **Analog throttle & brake** – smooth control with R2 / L2
+- 🕹️ **Steering** – precise with left analog stick
+- 💡 **Full LED system** – headlights, tail lights, brake, indicators, auxiliary lights
+- 🔊 **Audio feedback** – horn, engine start/stop, blinkers
+- ✨ **PS4 controller feedback** – rumble & LED effects
+- 🔋 **Battery management** – 3S Li-Ion pack charging & monitoring
+- 🛑 **Safe motor control** – coasting and braking handled reliably
+- 🎮 **Universal controller support** – works with pads from any console, simple pairing
+---
 
 ## 🧩 Hardware Components
 
-| Component                                                                               | Description                                  |
-| --------------------------------------------------------------------------------------- | -------------------------------------------- |
-| [ESP32 DevKit v4](https://www.espressif.com/en/products/devkits/esp32-devkitc/overview) | Main microcontroller with Bluetooth and WiFi |
-| [3x 18650 Li-Ion cells](https://pl.aliexpress.com/item/1005008533683033.html)           | Battery pack powering the system             |
-| TP4056 (with protection) module                                                         | Battery charging and protection              |
-| TB6612FNG Motor Driver                                                                  | Dual channel motor driver (2 DC motors)      |
-| MP2307 DC-DC Mini 360                                                                   | Step-down voltage regulator                  |
-| RUEF300 PTC Resettable Fuse                                                             | 3A 30V overcurrent protection                |
-| PS4 Controller                                                                          | Remote control via Bluetooth                 |
-| LEDs + 2N5551 transistors                                                               | For lights and visual feedback               |
+| Component | Description |
+|-----------|-------------|
+| ESP32 DevKit v4 | MCU with WiFi and Bluetooth |
+| 3x 18650 Li-Ion cells (3S) | Main battery pack |
+| BMS 3S 40A | Battery protection and balancing |
+| USB-C PD Trigger Board | Optional 12V input for charging |
+| TB6612FNG Motor Driver | Dual DC motor control |
+| LEDs + 2N5551 transistors | Lights and indicators |
+| MAX98357A / PCM5102A | I2S audio module (engine sounds, horn) |
+| Optional Battery Monitor | E.g. 2S–8S Li-Ion/LiFePO4 voltage indicator |
+
+---
 
 ## ⚡ Power Architecture
 
-- Battery pack: 3x 18650 (approx. 11.1–12.6V when fully charged)
-- Step-down regulator (MP2307) outputs 5V to power the ESP32
-- TB6612FNG powered directly from battery voltage (up to 15V supported)
-- TP4056 module ensures safe charging via USB
-- RUEF300 fuse protects the system from overcurrent and shorts
+- 3S Li-Ion battery pack (~11.1–12.6V)
+- BMS 3S 40A for protection and balancing
+- Optional USB-C PD trigger for 12V input
+- Step-down regulators (if needed for ESP32 or peripherals)
+- 🔜 Battery monitoring module planned to track voltage and charge state
 
-## 🚗 Control Logic
+---
+
+## 🚦 Control Logic
 
 - **Throttle**: R2 trigger (0–255)
 - **Brake**: L2 button
-- **Steering**: Left analog stick (X-axis)
-- **LED Feedback**: Headlights and tail lights via GPIO
-- **Haptic Feedback**: Rumble motors and LED color via PS4 controller
-- **Drive Modes**: Forward, reverse, and idle (coasting)
+- **Steering**: Left stick X-axis
+- **LED Feedback**: GPIO-controlled headlights, tail lights, brake, and blinkers
+- **Audio Feedback**: Horn, engine start/stop, blinker sounds
+- **Haptic Feedback**: PS4 controller rumble
+- **Drive Modes**: Forward, reverse, idle/coast  
 
-## 💪 Project Status
-
-- ✅ Hardware tested and working
-- ✅ Basic PS4 input integrated
-- ✅ Motor logic implemented
-- ✅ LED and rumble feedback functional
-- ⚠️ Audio module (PCM5102A / MAX98357A) in planning
-- ⚠️ Unit test integration with PlatformIO ongoing
+---
 
 ## 🛠️ Development
 
-The firmware is written in C++ and built using **PlatformIO**.
+- Written in C++ with **PlatformIO**
+- Motor logic in `MotorController` with safe running state
+- Light control in `LightLedController` (FreeRTOS task for blinkers)
+- PS4 input via `BluePad32Controller`
+- Audio feedback simplified via `AudioClipController`  
 
-## 🧪 Unit Testing
+---
 
-Using PlatformIO's Unity test framework to validate:
+## 💪 Project Status
 
-- Input normalization (analog stick, trigger)
-- Motor speed calculations
-- Safe brake and coast behavior
+- ✅ Hardware tested and running
+- ✅ Motor and LED logic functional
+- ✅ PS4 controller input and rumble working
+- ✅ Audio tracks refinement working
+- ⚠️ Battery monitoring and full PD integration in progress  
+
+---
 
 ## 🔍 Keywords
 
-ESP32 RC Car, PS4 Controller ESP32, TB6612FNG Motor Driver, 18650 ESP32 Power, MAX98357A I2S Audio, PlatformIO ESP32 Car, Remote Controlled Car Project
+ESP32 RC Car, PS4 Controller, TB6612FNG Motor Driver, 18650 Li-Ion Battery, I2S Audio, PlatformIO ESP32 RC  
+
+---
 
 ## 📄 License
 
 MIT License
-
