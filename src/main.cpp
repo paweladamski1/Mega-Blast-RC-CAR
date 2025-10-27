@@ -15,7 +15,7 @@ MotorController motor(AIN1, AIN2, PWMA, BIN1, BIN2, PWMB, STBY);
 
 AudioClipController sound(I2S_BCLK, I2S_LRCLK, I2S_DIN, SD_SCK, SD_MISO, SD_MOSI, SD_CS);
 LightLedController lights(LED_LEFT_INDICATOR, LED_RIGHT_INDICATOR, LED_BRAKE, LED_MAIN_REAR, LED_REVERSE, LED_AUX, sound);
-BluePad32Controller pad(lights, sound);
+BluePad32Controller pad(lights, sound, motor);
  
 
 /*
@@ -50,7 +50,7 @@ void setup()
 const int timeout = 80000;
 void loop()
 {   
-  pad.loop(motor);
+  pad.loop();
   delay(50);
 }
 
