@@ -62,8 +62,8 @@ public:
     void playGearChange();
     void playGearChangeFail();
 
-    
-
+    void playConnectionLost();
+    void playCharging();
 private:
     void addClip(AudioClip *c);
     void removeClip();
@@ -82,6 +82,8 @@ private:
     volatile bool _MusicOn_Req;
     volatile bool _MusicNext_Req;
     volatile bool _cleanupClipList_Req  = false;
+    volatile bool _connectionLost_Req  = false;
+    volatile bool _isCharging_Req  = false;
 
 
     volatile bool _gearChange_Req;
@@ -106,6 +108,8 @@ private:
     AudioClip *backingUpBeepItem;
     AudioClip *gearChangeItem;
     AudioClip *gearChangeFailItem;
+    AudioClip *connectionLostItem;
+    AudioClip *chargingItem;
 
     AudioClip *hornItem[5]; 
 

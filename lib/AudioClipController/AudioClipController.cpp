@@ -62,8 +62,12 @@ void AudioClipController::begin()
     fordMustangV8_EndItem = new AudioClip(this, "/1965FordMustangV8end.wav", 0.3f, false);
     fordMustangV8_Accel_1_Item = new AudioClip(this, "/1965FordMustangV8accel1.wav", 0.7f);
     fordMustangV8_Accel_2_Item = new AudioClip(this, "/1965FordMustangV8accel2.wav", 0.7f);
+    
     gearChangeItem = new AudioClip(this, "/gear_change.wav", 0.5f, false);
     gearChangeFailItem = new AudioClip(this, "/gear_change_err.wav", 0.5f, false);
+    
+    connectionLostItem = new AudioClip(this, "/onPadDisconnect.wav", 1.0f, false);
+    chargingItem = new AudioClip(this, "/onCharging.wav", 1.0f, false);
 
     fordMustangV8_StartItem->onEnd = [](AudioClip *sender, AudioClipController *controller)
     {
@@ -107,6 +111,18 @@ void AudioClipController::_soundControllerTask()
         {
             _playAudioClipAndWaitForEnd(gearChangeFailItem);
             _gearChangeFail_Req = false;
+        }
+
+        if (_connectionLost_Req)
+        {
+            _playAudioClipAndWaitForEnd(connectionLostItem);
+            _connectionLost_Req = false;
+        }
+
+        if (_isCharging_Req)
+        {
+            _playAudioClipAndWaitForEnd(chargingItem);
+            _isCharging_Req = false;
         }
 
         if (_hornOn)
@@ -278,6 +294,16 @@ void AudioClipController::playGearChange()
 void AudioClipController::playGearChangeFail()
 {
     _gearChangeFail_Req = true;
+}
+
+void AudioClipController::playConnectionLost()
+{
+    _connectionLost_Req = true;
+}
+
+void AudioClipController::playCharging()
+{
+    _isCharging_Req = true;
 }
 
 void AudioClipController::addClip(AudioClip *c)
