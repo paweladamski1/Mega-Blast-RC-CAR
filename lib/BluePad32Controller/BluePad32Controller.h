@@ -12,45 +12,62 @@
 class BluePad32Controller
 {
 public:
-    BluePad32Controller(LightLedController &lights, AudioClipController &sound);
+    BluePad32Controller(LightLedController &lights, AudioClipController &sound, MotorController &motor);
     void begin();
-    void loop(MotorController &motor);
+    void loop();
 
-    void onJustDisconnected(bool &IsConnectFlag, MotorController &motor);
 
-    void onJustConnected(bool &IsConnectFlag, MotorController &motor);
 
 private:
     LightLedController &lights;
     AudioClipController &sound;
+    MotorController &motor;
     int _gear=0;
 
-    static void onConnected(GamepadPtr gp);
-    static void onDisconnected(GamepadPtr gp);
+    static void BP32_onConnected(GamepadPtr gp);
+    static void BP32_onDisconnected(GamepadPtr gp);
 
-    void updateControlData();
     void onAcceleratingAction(int throttle);
     void onBrakingAction(int brakeForce); 
+ 
 
+    bool _get_PadRight_ToggleState();
+    bool _get_PadLeft_ToggleState();
+    bool _get_PadUp_ToggleState();
+    bool _get_PadDown_ToggleState();
 
-    void _gearBox();
+    bool _get_PadL1_ToggleState();
+    bool _get_PadR1_ToggleState(); 
 
-    bool _getArrowRightToggleState();
-    bool _getArrowLeftToggleState();
-    bool _getArrowUpToggleState();
-    bool _getArrowDownToggleState();
+    bool _get_PadA_ToggleState();
+    bool _get_PadB_ToggleState();
+    bool _get_PadX_ToggleState();
+    bool _get_PadY_ToggleState();
 
-    bool _getL1ToggleState();
-    bool _getR1ToggleState();
-    bool _getXToggleState();
-
-    bool isConnected();
+    
     static GamepadPtr gamepad;
     
-    int32_t _throttle = 0;
-    int32_t _brakeForce = 0;
+ 
     
-    SControlData ControlData;  
+    
+    SControlData _controlData;  
+    SPadData _padData;
+
+    void _handleInput();
+    void _handleConnectionTimeout();
+    void _handleCharging();
+    void _handleConnectPad();
+    void _handleActionButtons();
+    void _onAction_UserStopEngine();   
+
+    void _handleGearBox();
+    void _handleControl();
+    void _handleMotor();
+
+    void onJustDisconnected();
+    void onJustConnected();
+
+    bool _isConnected() const;
 };
 
 #endif

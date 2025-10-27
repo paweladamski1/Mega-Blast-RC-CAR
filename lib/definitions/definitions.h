@@ -61,5 +61,24 @@ struct SControlData
     int gear;
 };
 
+struct SPadData {
+    int throttle = 0;      // 0 - 1023
+    int brakeForce = 0;    // 0 - 1023
+    int steering = 0;      // -100 - 100    
+    bool hasData = false;
+    bool emergencyLights = false;
+    bool auxLights = false;
+    bool indicatorLeft = false;
+    bool indicatorRight = false;
+    bool horn = false;
+    bool playMusic = false;
+    bool systemBtn = false;
+
+    unsigned long lastPacket = 0;
+    
+    inline bool isBrake() const {
+        return brakeForce > 3;
+    }
+};
 
 #endif // DEFINITIONS_H

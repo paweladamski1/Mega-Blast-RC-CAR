@@ -3,10 +3,9 @@
 
 GamepadPtr BluePad32Controller::gamepad = nullptr;
 
-
-BluePad32Controller::BluePad32Controller(LightLedController &lights, AudioClipController &sound) : lights(lights), sound(sound)
+BluePad32Controller::BluePad32Controller(LightLedController &lights, AudioClipController &sound, MotorController &motor) : lights(lights), sound(sound), motor(motor)
 {
-    ControlData = {0, 0, false};
+    _controlData = {0, 0, false};
 }
 
 void BluePad32Controller::begin()
@@ -28,148 +27,147 @@ void BluePad32Controller::begin()
     }
 
     Serial.println("Bluepad32 setup...");
-    BP32.setup(&BluePad32Controller::onConnected, &BluePad32Controller::onDisconnected);
+    BP32.setup(&BluePad32Controller::BP32_onConnected, &BluePad32Controller::BP32_onDisconnected);
     Serial.println("Bluetooth started. Waiting for controller...");
     BP32.forgetBluetoothKeys();
+
+    _padData.hasData = false;
+    _padData.throttle = 0;
+    _padData.brakeForce = 0;
+    _padData.steering = 0;
 }
 
-void BluePad32Controller::onConnected(GamepadPtr gp)
+void BluePad32Controller::BP32_onConnected(GamepadPtr gp)
 {
-    if (gamepad == nullptr || !gamepad->isConnected())
+    if (gamepad == nullptr)
     {
-        Serial.println("Controller connected");
-        Serial.print(gp->getModelName());
+        Serial.println("BP32_onConnected - Controller connected");
+        Serial.print(gp->getModelName());      
         gamepad = gp;
     }
 }
 
-void BluePad32Controller::onDisconnected(GamepadPtr gp)
+void BluePad32Controller::BP32_onDisconnected(GamepadPtr gp)
 {
-    if(gamepad == nullptr)
-        return;   
+    if (gamepad == nullptr)
+        return;
     gamepad->disconnect();
-    Serial.println("Controller disconnected");
+    Serial.println("BP32_onDisconnected - Controller disconnected");
 }
 
-
-bool BluePad32Controller::isConnected()
+void BluePad32Controller::loop()
 {
-    return gamepad != nullptr && gamepad->isConnected();
-}
-
-void BluePad32Controller::loop(MotorController &motor)
-{
-    static unsigned long lastPacket = millis();
-    unsigned long now = millis();
-    static bool IsConnectFlag = false;   
-
     BP32.update();
 
-    if(gamepad == nullptr)
-        return;    
-  
+    _handleInput();
+    _handleConnectPad();
+    _handleConnectionTimeout();
+    _handleCharging();    
+    _handleActionButtons();
+    _handleGearBox();
+    _handleControl();
+    _handleMotor();
+}
 
-    if (isConnected() && !IsConnectFlag)         
-        onJustConnected(IsConnectFlag, motor);   
-    else if (!isConnected() && IsConnectFlag)   
-        onJustDisconnected(IsConnectFlag, motor);
-   
-
-    if (!IsConnectFlag)
+void BluePad32Controller::_handleInput()
+{
+    if (!_isConnected())
         return;
 
-    _throttle = gamepad->throttle(); // (0 - 1023)
-    _brakeForce = gamepad->brake();  // (0 - 1023)
+    _padData.hasData = gamepad->hasData();
+    _padData.throttle = gamepad->throttle();
+    _padData.brakeForce = gamepad->brake();
+    _padData.steering = map(gamepad->axisX(), -511, 512, -100, 100);
 
-    if (PowerManager::isCharging() && IsConnectFlag)
+    if (_get_PadB_ToggleState())
+        _padData.auxLights = !_padData.auxLights;
+
+    if (_get_PadY_ToggleState())
+        _padData.emergencyLights = !_padData.emergencyLights;
+
+    if (_get_PadLeft_ToggleState())
     {
-        _throttle = 0;
-        _brakeForce = 1023;
-        Serial.println("Charging.... Motor stopped.");
+        _padData.indicatorLeft = !_padData.indicatorLeft;
+        _padData.indicatorRight = false;
     }
 
-
-    if(gamepad->hasData())    
-        lastPacket = now;
-
-    if (now - lastPacket > 1000)
+    if (_get_PadRight_ToggleState())
     {
-        Serial.println("No data received for 1 seconds. Stopping motor...");        
-        _brakeForce = 1023;
-        _throttle = 0;
-        //sound.playHorn();
+        _padData.indicatorRight = !_padData.indicatorRight;
+        _padData.indicatorLeft = false;
     }
 
-    if (gamepad->miscButtons() & PS4_BTN)
+    _padData.horn = gamepad->a();
+
+    _padData.playMusic = _get_PadX_ToggleState();
+
+    _padData.systemBtn = gamepad->miscButtons() & PS4_BTN;
+
+    if (_padData.hasData)
+        _padData.lastPacket = millis();
+}
+
+void BluePad32Controller::_handleConnectPad()
+{
+    static bool IsConnectFlag = false;
+
+    if (_isConnected() && !IsConnectFlag)
+        onJustConnected();
+        else if (!_isConnected() && IsConnectFlag)
+            onJustDisconnected();
+
+    IsConnectFlag = _isConnected();
+}
+
+void BluePad32Controller::_handleConnectionTimeout()
+{
+    if (!_isConnected())
+        return;
+
+    unsigned long now = millis();
+
+    if (now - _padData.lastPacket > 1000)
     {
-        gamepad->setColorLED(0, 0, 0);
-        gamepad->playDualRumble(
-            0,   // delayedStartMs
-            100, // durationMs
-            0,   // weakMagnitude
-            255  // strongMagnitude
-        );
-        Serial.println("motor.stop");
-        sound.playStopEngine();
-        sound.playStartBlinker();
-        motor.stopEngine();
-        delay(2000);
-        Serial.println("gamepad->disconnect");
-        gamepad->disconnect();
-        delay(1000);
-        Serial.println("restart esp32");
-        esp_restart();
+        _padData.throttle = 0;
+        _padData.brakeForce = 1023;
+        sound.playConnectionLost();
+    }
+}
+
+void BluePad32Controller::_handleCharging()
+{
+    if (PowerManager::isCharging())
+    {
+        _padData.throttle = 0;
+        _padData.brakeForce = 1023;
+        sound.playCharging();
+    }
+}
+
+void BluePad32Controller::_handleActionButtons()
+{
+    if (!_isConnected())
+        return;
+
+    if (_padData.systemBtn)
+    {
+        _onAction_UserStopEngine();
         return;
     }
+    lights.setAuxLight(_padData.auxLights);
 
-    static bool emergencyLights = false,
-                auxLights = false,
-                prevYState = false,
-                prevBState = false,
-                indicatorLeft = false,
-                indicatorRight = false;
-
-    if (!gamepad->y() && prevYState)
-    {
-        emergencyLights = !emergencyLights;
-        Serial.print(" Triangle ");
-    }
-
-    if (!gamepad->b() && prevBState)
-    {
-        auxLights = !auxLights;
-        Serial.print(" Circle ");
-    }
-
-    lights.setAuxLight(auxLights);
-
-    if (emergencyLights)
+    if (_padData.emergencyLights)
         lights.setIndicator(true, true);
     else
+        lights.setIndicator(_padData.indicatorLeft, _padData.indicatorRight);
+
+    if (_padData.horn)
     {
-        if (_getArrowLeftToggleState())
-        {
-            indicatorLeft = !indicatorLeft;
-            indicatorRight = false;
-        }
-        if (_getArrowRightToggleState())
-        {
-            indicatorLeft = false;
-            indicatorRight = !indicatorRight;
-        }
-
-        lights.setIndicator(indicatorLeft, indicatorRight);
-    }
-
-    _gearBox();
-
-    if (gamepad->a())
-    {
-        Serial.print(" Cross ");
         sound.playHorn();
+        _padData.horn = false;
     }
 
-    if (_getXToggleState())
+    if (_padData.playMusic)
     {
         static bool xState = false;
         xState = !xState;
@@ -181,44 +179,37 @@ void BluePad32Controller::loop(MotorController &motor)
             sound.stopMusic();
     }
 
-    if (_getL1ToggleState())
+    if (_get_PadL1_ToggleState())
         Serial.print(" l1 ");
-
-    updateControlData();
-    motor.drive(ControlData);
-    prevYState = gamepad->y();
-    prevBState = gamepad->b();
 }
 
-void BluePad32Controller::onJustDisconnected(bool &IsConnectFlag, MotorController &motor)
+void BluePad32Controller::_onAction_UserStopEngine()
 {
-    Serial.println("Controller disconnected"); // Signal lost
-    IsConnectFlag = false;
+    gamepad->setColorLED(0, 0, 0);
+    gamepad->playDualRumble(
+        0,   // delayedStartMs
+        100, // durationMs
+        0,   // weakMagnitude
+        255  // strongMagnitude
+    );
+
     sound.playStopEngine();
-    delay(2000);
-    lights.setMainRearLight(false);
-    lights.setIndicator(false, false);
     sound.playStartBlinker();
     motor.stopEngine();
+    delay(2000);
+    gamepad->disconnect();
+    delay(1000);
+    esp_restart();
 }
 
-void BluePad32Controller::onJustConnected(bool &IsConnectFlag, MotorController &motor)
+void BluePad32Controller::_handleGearBox()
 {
-    Serial.println("Controller connected");
-    IsConnectFlag = true;
-    lights.setIndicator(false, false);
-    sound.playStartEngine();
-    vTaskDelay(3000);
-    lights.setMainRearLight(true);
-    gamepad->setColorLED(255, 255, 255);
-    gamepad->playDualRumble(10, 500, 128, 255);
-    motor.startEngine();
-}
+    if (!_isConnected())
+        return;
 
-void BluePad32Controller::_gearBox()
-{
     bool prevGear = _gear;
-    if (_getArrowUpToggleState())
+
+    if (_get_PadUp_ToggleState())
     {
         Serial.print(" Arr. Up ");
         _gear++;
@@ -230,7 +221,7 @@ void BluePad32Controller::_gearBox()
         else
             sound.playGearChange();
     }
-    else if (_getArrowDownToggleState())
+    else if (_get_PadDown_ToggleState())
     {
         Serial.print(" Arr. Down ");
         _gear--;
@@ -255,73 +246,92 @@ void BluePad32Controller::_gearBox()
     }
 }
 
-void BluePad32Controller::updateControlData()
+void BluePad32Controller::_handleControl()
 {
-    if (!isConnected())
+    if (!_isConnected())
     {
         // reset
-        ControlData.momentum = 0;
-        ControlData.steering = 0;
-        ControlData.brake = true;
+        _controlData.momentum = 0;
+        _controlData.steering = 0;
+        _controlData.brake = true;
         return;
     }
 
     static int _s_loop_cnt = 0;
     _s_loop_cnt++;
+    bool isBrake = _padData.isBrake();
 
-    bool isBrake = _brakeForce > 2;
-    int steering = map(gamepad->axisX(), -511, 512, -100, 100);
+    sound.setEngineRpm(_padData.throttle);
 
-    /*if (_getR1ToggleState() && ControlData.momentum == 0)
-     {
-         Serial.print(" R1 ");
-         toggleDirection();
-     }*/
-
-    sound.setEngineRpm(_throttle);
-
-    if (ControlData.momentum >= _throttle && !isBrake) // free-rolling simulation
+    if (_controlData.momentum >= _padData.throttle && !isBrake) // free-rolling simulation
     {
-        if (_s_loop_cnt % 2 == 0 && ControlData.momentum > 0)
-            ControlData.momentum--;
+        if (_s_loop_cnt % 2 == 0 && _controlData.momentum > 0)
+            _controlData.momentum--;
     }
-    else if (isBrake) // braking
-    {
-        onBrakingAction(_brakeForce);
-    }
-    else if (_throttle > ControlData.momentum)
-    {
-        onAcceleratingAction(_throttle);
-    }
+    else if (isBrake)
+        onBrakingAction(_padData.brakeForce);
+    else if (_padData.throttle > _controlData.momentum)
+        onAcceleratingAction(_padData.throttle);
 
     lights.setBrakeLight(isBrake);
 
     switch (_gear)
     {
     case -1:
-        ControlData.momentum = constrain(ControlData.momentum, 0, 125);
+        _controlData.momentum = constrain(_controlData.momentum, 0, 125);
         break;
     case 0:
-        ControlData.momentum = constrain(ControlData.momentum, 0, 0);
+        _controlData.momentum = constrain(_controlData.momentum, 0, 0);
         break;
     case 1:
-        ControlData.momentum = constrain(ControlData.momentum, 0, 125);
+        _controlData.momentum = constrain(_controlData.momentum, 0, 125);
         break;
     case 2:
-        ControlData.momentum = constrain(ControlData.momentum, 0, 255);
+        _controlData.momentum = constrain(_controlData.momentum, 0, 255);
         break;
     }
 
-    ControlData.steering = steering;
-    ControlData.brake = isBrake;
-    ControlData.gear = _gear;
+    _controlData.steering = _padData.steering;
+    _controlData.brake = isBrake;
+    _controlData.gear = _gear;
+}
+
+void BluePad32Controller::_handleMotor()
+{
+    motor.drive(_controlData);
+}
+
+void BluePad32Controller::onJustConnected()
+{
+    if (!_isConnected())
+        return;
+
+    Serial.println("Controller connected");
+    lights.setIndicator(false, false);
+    sound.playStartEngine();
+    vTaskDelay(3000);
+    lights.setMainRearLight(true);
+    gamepad->setColorLED(255, 255, 255);
+    gamepad->playDualRumble(10, 500, 128, 255);
+    motor.startEngine();
+}
+
+void BluePad32Controller::onJustDisconnected()
+{
+    Serial.println("Controller disconnected");
+    lights.setIndicator(false, false);
+    lights.setMainRearLight(false);
+    sound.playStopEngine();
+    _controlData.momentum = 0;
+    _padData.throttle = 0;
+    _padData.brakeForce = 1023;
 }
 
 void BluePad32Controller::onAcceleratingAction(int throttle)
 {
-    ControlData.momentum += map(throttle, 0, 1023, 0, 50);
+    _controlData.momentum += map(throttle, 0, 1023, 0, 50);
     Serial.print(" Accelerating ");
-    Serial.print(ControlData.momentum);
+    Serial.print(_controlData.momentum);
 
     gamepad->playDualRumble(0, 200, 0, 150);
 }
@@ -331,18 +341,18 @@ void BluePad32Controller::onBrakingAction(int brakeForce)
     Serial.print(" braking ");
     Serial.print(brakeForce);
     Serial.print(" ");
-    if (ControlData.momentum > 0)
+    if (_controlData.momentum > 0)
     {
-        ControlData.momentum -= map(brakeForce, 0, 1023, 0, 50);
-        if (ControlData.momentum < 0)
-            ControlData.momentum = 0;
+        _controlData.momentum -= map(brakeForce, 0, 1023, 0, 50);
+        if (_controlData.momentum < 0)
+            _controlData.momentum = 0;
     }
 
     if (brakeForce > 1000)
-        ControlData.momentum = 0;
+        _controlData.momentum = 0;
 }
 
-bool BluePad32Controller::_getArrowRightToggleState()
+bool BluePad32Controller::_get_PadRight_ToggleState()
 {
     static bool oldState = false;
     static bool ret = false;
@@ -358,7 +368,7 @@ bool BluePad32Controller::_getArrowRightToggleState()
     return ret;
 }
 
-bool BluePad32Controller::_getArrowLeftToggleState()
+bool BluePad32Controller::_get_PadLeft_ToggleState()
 {
     static bool oldState = false;
     static bool ret = false;
@@ -374,7 +384,7 @@ bool BluePad32Controller::_getArrowLeftToggleState()
     return ret;
 }
 
-bool BluePad32Controller::_getArrowUpToggleState()
+bool BluePad32Controller::_get_PadUp_ToggleState()
 {
     static bool oldState = false;
     static bool ret = false;
@@ -390,7 +400,7 @@ bool BluePad32Controller::_getArrowUpToggleState()
     return ret;
 }
 
-bool BluePad32Controller::_getArrowDownToggleState()
+bool BluePad32Controller::_get_PadDown_ToggleState()
 {
     static bool oldState = false;
     static bool ret = false;
@@ -416,7 +426,7 @@ bool BluePad32Controller::_getArrowDownToggleState()
  *
  * @return true if the toggle is currently active, false otherwise.
  */
-bool BluePad32Controller::_getL1ToggleState()
+bool BluePad32Controller::_get_PadL1_ToggleState()
 {
     static bool oldState = false;
     static bool ret = false;
@@ -442,7 +452,7 @@ bool BluePad32Controller::_getL1ToggleState()
  *
  * @return true if the toggle is currently active, false otherwise.
  */
-bool BluePad32Controller::_getR1ToggleState()
+bool BluePad32Controller::_get_PadR1_ToggleState()
 {
     static bool oldState = false;
     static bool ret = false;
@@ -458,7 +468,39 @@ bool BluePad32Controller::_getR1ToggleState()
     return ret;
 }
 
-bool BluePad32Controller::_getXToggleState()
+bool BluePad32Controller::_get_PadA_ToggleState()
+{
+    static bool oldState = false;
+    static bool ret = false;
+
+    bool currentState = gamepad->a();
+
+    if (!oldState && currentState)
+        ret = true;
+    else
+        ret = false;
+
+    oldState = currentState;
+    return ret;
+}
+
+bool BluePad32Controller::_get_PadB_ToggleState()
+{
+    static bool oldState = false;
+    static bool ret = false;
+
+    bool currentState = gamepad->b();
+
+    if (!oldState && currentState)
+        ret = true;
+    else
+        ret = false;
+
+    oldState = currentState;
+    return ret;
+}
+
+bool BluePad32Controller::_get_PadX_ToggleState()
 {
     static bool oldState = false;
     static bool ret = false;
@@ -472,4 +514,25 @@ bool BluePad32Controller::_getXToggleState()
 
     oldState = currentState;
     return ret;
+}
+
+bool BluePad32Controller::_get_PadY_ToggleState()
+{
+    static bool oldState = false;
+    static bool ret = false;
+
+    bool currentState = gamepad->y();
+
+    if (!oldState && currentState)
+        ret = true;
+    else
+        ret = false;
+
+    oldState = currentState;
+    return ret;
+}
+
+bool BluePad32Controller::_isConnected() const
+{
+    return gamepad != nullptr && gamepad->isConnected();
 }
