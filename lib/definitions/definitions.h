@@ -1,5 +1,6 @@
 #ifndef DEFINITIONS_H
 #define DEFINITIONS_H
+#include "driver/i2s.h"
 
 // Pin definitions
 
@@ -61,10 +62,11 @@ struct SControlData
     int gear;
 };
 
-struct SPadData {
-    int throttle = 0;      // 0 - 1023
-    int brakeForce = 0;    // 0 - 1023
-    int steering = 0;      // -100 - 100    
+struct SPadData
+{
+    int throttle = 0;   // 0 - 1023
+    int brakeForce = 0; // 0 - 1023
+    int steering = 0;   // -100 - 100
     bool hasData = false;
     bool emergencyLights = false;
     bool auxLights = false;
@@ -75,10 +77,32 @@ struct SPadData {
     bool systemBtn = false;
 
     unsigned long lastPacket = 0;
-    
-    inline bool isBrake() const {
+
+    inline bool isBrake() const
+    {
         return brakeForce > 3;
     }
 };
 
+struct Index5
+{
+    uint8_t value = 0;
+    void increment() { value = (value + 1) % 5; }
+};
+
+static const i2s_config_t i2s_config =
+    {
+        .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_TX),
+        .sample_rate = 22050, // Note, all files must be this
+        .bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT,
+        .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,
+        .communication_format = (i2s_comm_format_t)(I2S_COMM_FORMAT_STAND_I2S | I2S_COMM_FORMAT_STAND_MSB),
+        .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1, // high interrupt priority
+        .dma_buf_count = 8,                       // 8 buffers
+        .dma_buf_len = 256,                       // 256 bytes per buffer, so 2K of buffer space
+        .use_apll = 0,
+        .tx_desc_auto_clear = true,
+        .fixed_mclk = -1};
+
+        
 #endif // DEFINITIONS_H
