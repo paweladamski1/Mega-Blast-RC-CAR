@@ -140,6 +140,7 @@ void BluePad32Controller::_handleCharging()
     {
         _padData.throttle = 0;
         _padData.brakeForce = 1023;
+        _padData.steering = 0;
         sound.playCharging();
     }
 }
