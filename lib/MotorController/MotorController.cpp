@@ -31,11 +31,8 @@ void MotorController::begin()
 
 void MotorController::drive(SControlData &controlData)
 {
-    if (!_isRunningState)
-    {
-        Serial.println("MotorController::drive ignored, not in running state");
+    if (!_isRunningState)       
         return;
-    }
 
     int momentum = controlData.momentum; // 0 to 255
     int steering = controlData.steering; // -100 to 100
@@ -63,10 +60,10 @@ void MotorController::drive(SControlData &controlData)
         if (rightSpeed == 0 and leftSpeed > 0)
             rightSpeed = -leftSpeed;
     }*/
-
+#ifdef DEBUG
     Serial.printf("AIN1=%d, AIN2=%d, PWMA=%d, BIN1=%d, BIN2=%d, PWMB=%d, STBY=%d\n",
               _ain1, _ain2, _pwma, _bin1, _bin2, _pwmb, _stby);
-
+#endif
     _setMotor(_ain1, _ain2, _pwma, (gear >= 0) ? leftSpeed : -leftSpeed);
     _setMotor(_bin1, _bin2, _pwmb, (gear >= 0) ? rightSpeed : -rightSpeed);
 }
