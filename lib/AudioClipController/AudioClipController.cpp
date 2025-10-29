@@ -37,39 +37,42 @@ void AudioClipController::begin()
 
     Serial.println("");
 
-    musicItem[0] = new AudioClip(this, "/music1.wav", 0.9f, false, 100.0f);
-    musicItem[1] = new AudioClip(this, "/music2.wav", 0.9f, false, 100.0f);
-    musicItem[2] = new AudioClip(this, "/music3.wav", 0.9f, false, 100.0f);
-    musicItem[3] = new AudioClip(this, "/music4.wav", 0.9f, false, 100.0f);
-    musicItem[4] = new AudioClip(this, "/music5.wav", 0.9f, false, 100.0f);
+    _musicItem[0] = new AudioClip(this, "/music1.wav", 0.9f, false, 100.0f);
+    _musicItem[1] = new AudioClip(this, "/music2.wav", 0.9f, false, 100.0f);
+    _musicItem[2] = new AudioClip(this, "/music3.wav", 0.9f, false, 100.0f);
+    _musicItem[3] = new AudioClip(this, "/music4.wav", 0.9f, false, 100.0f);
+    _musicItem[4] = new AudioClip(this, "/music5.wav", 0.9f, false, 100.0f);
 
     // when music end then play next
     for (int i = 0; i < 5; i++)
     {
-        musicItem[i]->onEnd = [](AudioClip *sender, AudioClipController *controller)
+        _musicItem[i]->onEnd = [](AudioClip *sender, AudioClipController *controller)
         {
             controller->playNextMusic();
         };
     }
-    blinkerItem = new AudioClip(this, "/blinker_runing.wav", 0.8f, true);
-    backingUpBeepItem = new AudioClip(this, "/backing_up_beep.wav", 0.5f, true);
+    _blinkerItem = new AudioClip(this, "/blinker_runing.wav", 0.8f, true);
+    _blinkerStartItem = new AudioClip(this, "/blinker_start.wav", 0.8f, false);
+    _blinkerStopItem = new AudioClip(this, "/blinker_end.wav", 0.8f, false);
+
+    _backingUpBeepItem = new AudioClip(this, "/backing_up_beep.wav", 0.5f, true);
 
     for (int i = 0; i < 5; i++)
-        hornItem[i] = new AudioClip(this, horn_filename[i], 0.6f, false);
+        _hornItem[i] = new AudioClip(this, horn_filename[i], 0.6f, false);
 
-    fordMustangV8_StartItem = new AudioClip(this, "/1965FordMustangV8start.wav", 0.3f, false, 95.0f);
-    fordMustangV8_IdleItem = new AudioClip(this, "/1965FordMustangV8idle.wav", 0.4f, true, 100.0f);
-    fordMustangV8_EndItem = new AudioClip(this, "/1965FordMustangV8end.wav", 0.3f, false);
-    fordMustangV8_Accel_1_Item = new AudioClip(this, "/1965FordMustangV8accel1.wav", 0.7f);
-    fordMustangV8_Accel_2_Item = new AudioClip(this, "/1965FordMustangV8accel2.wav", 0.7f);
-    
-    gearChangeItem = new AudioClip(this, "/gear_change.wav", 0.5f, false);
-    gearChangeFailItem = new AudioClip(this, "/gear_change_err.wav", 0.5f, false);
-    
-    connectionLostItem = new AudioClip(this, "/onPadDisconnect.wav", 1.0f, false);
-    chargingItem = new AudioClip(this, "/onCharging.wav", 1.0f, false);
+    _fordMustangV8_StartItem = new AudioClip(this, "/1965FordMustangV8start.wav", 0.3f, false, 95.0f);
+    _fordMustangV8_IdleItem = new AudioClip(this, "/1965FordMustangV8idle.wav", 0.4f, true, 100.0f);
+    _fordMustangV8_EndItem = new AudioClip(this, "/1965FordMustangV8end.wav", 0.3f, false);
+    _fordMustangV8_Accel_1_Item = new AudioClip(this, "/1965FordMustangV8accel1.wav", 0.7f);
+    _fordMustangV8_Accel_2_Item = new AudioClip(this, "/1965FordMustangV8accel2.wav", 0.7f);
 
-    fordMustangV8_StartItem->onEnd = [](AudioClip *sender, AudioClipController *controller)
+    _gearChangeItem = new AudioClip(this, "/gear_change.wav", 0.5f, false);
+    _gearChangeFailItem = new AudioClip(this, "/gear_change_err.wav", 0.5f, false);
+
+    _connectionLostItem = new AudioClip(this, "/onPadDisconnect.wav", 1.0f, false);
+    _chargingItem = new AudioClip(this, "/onCharging.wav", 1.0f, false);
+
+    _fordMustangV8_StartItem->onEnd = [](AudioClip *sender, AudioClipController *controller)
     {
         controller->_engineIdle_Req = true;
     };
@@ -83,19 +86,23 @@ void AudioClipController::begin()
 void AudioClipController::_soundControllerTask(void *param)
 {
     Serial.println("_soundControllerTask running.");
-    auto *parent = static_cast<AudioClipController *>(param);    
+    auto *parent = static_cast<AudioClipController *>(param);
     parent->_soundControllerTask();
 }
 
 void AudioClipController::_soundControllerTask()
-{    
-    static int hornChoice = random(0, 5);    
+{
+    static int hornChoice = random(0, 5);
     bool isAddedQueueFlag = false;
 
     bool engineOn_State = _engineOn_Req;
     bool blinkerOn_State = _blinkerOn_Req;
     bool backingUpOn_State = _backingUpOn_Req;
-    bool _MusicOn_State = _MusicOn_Req;
+    bool musicOn_State = _MusicOn_Req;
+    unsigned long connLostCanStartDaley = 10000; // 10 seconds delay after engine start
+    unsigned long startTime = millis();
+    unsigned long now = millis();
+    bool connLostPlayed = false;
 
     int engineRpm_State = _engineRpm_Req;
     while (true)
@@ -103,57 +110,58 @@ void AudioClipController::_soundControllerTask()
 
         if (_gearChange_Req)
         {
-            _playAudioClipAndWaitForEnd(gearChangeItem);
+            _playAudioClipAndWaitForEnd(_gearChangeItem);
             _gearChange_Req = false;
         }
 
         if (_gearChangeFail_Req)
         {
-            _playAudioClipAndWaitForEnd(gearChangeFailItem);
+            _playAudioClipAndWaitForEnd(_gearChangeFailItem);
             _gearChangeFail_Req = false;
         }
 
-        if (_connectionLost_Req)
-        {
-            _playAudioClipAndWaitForEnd(connectionLostItem);
-            _connectionLost_Req = false;
-        }
+        if (_connectionLost_Req && engineOn_State && connLostPlayed)
+            _playAudioClipAndWaitForEnd(_connectionLostItem);
+
+        _connectionLost_Req = false;
 
         if (_isCharging_Req)
         {
-            _playAudioClipAndWaitForEnd(chargingItem);
+            _playAudioClipAndWaitForEnd(_chargingItem);
             _isCharging_Req = false;
         }
 
         if (_hornOn)
         {
-            hornItem[hornChoice]->stop();
-             hornChoice = random(0, 5);
-            hornItem[hornChoice]->play();
+            _hornItem[hornChoice]->stop();
+            hornChoice = random(0, 5);
+            _hornItem[hornChoice]->play();
             _hornOn = false;
         }
 
         if (_engineIdle_Req)
         {
             _engineIdle_Req = false;
-            fordMustangV8_IdleItem->play();
+            _fordMustangV8_IdleItem->play();
         }
 
         if (_blinkerOn_Req && !blinkerOn_State)
         {
             _serialPrint("_controller", "START BLINKER");
             blinkerOn_State = true;
-            blinkerItem->play();
+            _blinkerStartItem->play();
+            _blinkerItem->play();
         }
 
         if (_engineOn_Req && !engineOn_State)
         {
+            startTime = millis();
             engineOn_State = true;
-            if (!fordMustangV8_StartItem->isPlaying())
+            if (!_fordMustangV8_StartItem->isPlaying())
             {
                 _serialPrint("_controller", "START ENGINE");
-                // fordMustangV8_StartItem->setPlaybackRange((uint32_t)0, (uint32_t)178176);
-                fordMustangV8_StartItem->play();
+                // _fordMustangV8_StartItem->setPlaybackRange((uint32_t)0, (uint32_t)178176);
+                _fordMustangV8_StartItem->play();
             }
         }
 
@@ -162,28 +170,28 @@ void AudioClipController::_soundControllerTask()
 
             _serialPrint("_controller", "Backing Up Beep On");
             backingUpOn_State = true;
-            if (!backingUpBeepItem->isPlaying())
-                backingUpBeepItem->play();
+            if (!_backingUpBeepItem->isPlaying())
+                _backingUpBeepItem->play();
         }
 
-        if (_MusicOn_Req && !_MusicOn_State)
+        if (_MusicOn_Req && !musicOn_State)
         {
             _serialPrint("_controller", "Music on");
-            _MusicOn_State = true;
-            if (!musicItem[_musicIdx.value]->isPlaying())
-                musicItem[_musicIdx.value]->play();
+            musicOn_State = true;
+            if (!_musicItem[_musicIdx.value]->isPlaying())
+                _musicItem[_musicIdx.value]->play();
         }
 
         if (_MusicNext_Req)
         {
             _serialPrint("_controller", "NEXT Music");
             _MusicNext_Req = false;
-            if (musicItem[_musicIdx.value]->isPlaying())
-                musicItem[_musicIdx.value]->stop();
+            if (_musicItem[_musicIdx.value]->isPlaying())
+                _musicItem[_musicIdx.value]->stop();
 
             _musicIdx.increment();
             _MusicOn_Req = true;
-            _MusicOn_State = false;
+            musicOn_State = false;
         }
 
         // turn of
@@ -191,27 +199,28 @@ void AudioClipController::_soundControllerTask()
         {
             engineOn_State = _engineOn_Req;
 
-            fordMustangV8_EndItem->play();
+            _fordMustangV8_EndItem->play();
             vTaskDelay(500 / portTICK_PERIOD_MS);
-            fordMustangV8_IdleItem->stop();
+            _fordMustangV8_IdleItem->stop();
         }
 
         if (!_blinkerOn_Req && blinkerOn_State)
         {
             blinkerOn_State = _blinkerOn_Req;
-            blinkerItem->stop();
+            _blinkerStopItem ->play();
+            _blinkerItem->stop();
         }
 
         if (!_backingUpOn_Req && backingUpOn_State)
         {
             backingUpOn_State = _backingUpOn_Req;
-            backingUpBeepItem->stop();
+            _backingUpBeepItem->stop();
         }
 
-        if (!_MusicOn_Req && _MusicOn_State)
+        if (!_MusicOn_Req && musicOn_State)
         {
-            _MusicOn_State = _MusicOn_Req;
-            musicItem[_musicIdx.value]->stop();
+            musicOn_State = _MusicOn_Req;
+            _musicItem[_musicIdx.value]->stop();
         }
 
         if (engineRpm_State != _engineRpm_Req)
@@ -220,30 +229,37 @@ void AudioClipController::_soundControllerTask()
             {
                 int d = _engineRpm_Req - engineRpm_State;
                 if (d < 600)
-                    fordMustangV8_Accel_1_Item->play();
+                    _fordMustangV8_Accel_1_Item->play();
                 else
-                    fordMustangV8_Accel_2_Item->play();
+                    _fordMustangV8_Accel_2_Item->play();
             }
             engineRpm_State = _engineRpm_Req;
+        }
+
+        if (engineOn_State && !connLostPlayed)
+        {
+            now = millis();
+            if ((now - startTime) > connLostCanStartDaley)
+                connLostPlayed = true;
         }
         vTaskDelay(100 / portTICK_PERIOD_MS);
     }
 }
 
 void AudioClipController::playStartEngine()
-{  
+{
     _engineOn_Req = true;
 }
 
 void AudioClipController::playStopEngine()
-{ 
+{
     _engineOn_Req = false;
 }
 
 void AudioClipController::setEngineRpm(uint16_t rpm)
 {
     if (_engineRpm_Req != rpm)
-    {      
+    {
         _engineRpm_Req = rpm;
         Serial.print(" [r=");
         Serial.print(rpm);
@@ -317,7 +333,7 @@ void AudioClipController::removeClip()
     _cleanupClipList_Req = true;
 }
 
-bool AudioClipController::hasActiveClips()
+bool AudioClipController::_hasActiveClips()
 {
     for (AudioClip *item : _clipList)
     {
@@ -328,7 +344,7 @@ bool AudioClipController::hasActiveClips()
     return false;
 }
 
-void AudioClipController::clampSample(int32_t &mixedSample, int activeCount)
+void AudioClipController::ClampSample(int32_t &mixedSample, int activeCount)
 {
     if (mixedSample > 32767 || mixedSample < -32768)
         mixedSample /= activeCount;
@@ -370,7 +386,7 @@ bool AudioClipController::FillI2SBuffer(byte *Samples, uint16_t BytesInBuffer)
 
 void AudioClipController::_serialPrint(const char *procName, const char *who)
 {
-#ifdef DEBUG  
+#ifdef DEBUG
     Serial.println();
     Serial.print(" >>> AudioClipController:");
     Serial.print(procName);
@@ -379,8 +395,6 @@ void AudioClipController::_serialPrint(const char *procName, const char *who)
     Serial.println();
 #endif
 }
-
-
 
 void AudioClipController::_playAudioClipAndWaitForEnd(AudioClip *audio)
 {
@@ -428,14 +442,14 @@ void AudioClipController::_loopTask()
         if (!IsRead)
             return;
 
-        BytesReadFromFile = Mix(_samples); // Mix the samples together and store in the samples buffer
-        ReadingFilePhase = false;          // Switch to sending the buffer to the I2S
+        BytesReadFromFile = _mix(_samples); // Mix the samples together and store in the samples buffer
+        ReadingFilePhase = false;           // Switch to sending the buffer to the I2S
     }
     else
         ReadingFilePhase = FillI2SBuffer(_samples, BytesReadFromFile); // We keep calling this routine until it returns true, at which point
 }
 
-uint16_t AudioClipController::Mix(byte *samples)
+uint16_t AudioClipController::_mix(byte *samples)
 {
     // Mix all playing wavs together, returns the max bytes that are in the buffer, usually this would be the full buffer but
     // in rare cases wavs may be close to the end of the file and thus not fill the entire buffer
@@ -450,7 +464,7 @@ uint16_t AudioClipController::Mix(byte *samples)
 
     int activeCount = 0;
 
-    while (hasActiveClips())
+    while (_hasActiveClips())
     {
         mixedSample = 0;
         activeCount = 0;
@@ -465,7 +479,7 @@ uint16_t AudioClipController::Mix(byte *samples)
             }
         }
 
-        clampSample(mixedSample, activeCount);
+        ClampSample(mixedSample, activeCount);
 
         if (i + 1 < NUM_BYTES_TO_READ_FROM_FILE)
             *((int16_t *)(samples + i)) = (int16_t)mixedSample;

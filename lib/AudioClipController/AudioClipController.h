@@ -15,25 +15,6 @@
 
 class AudioClip; 
 
-struct Index5
-{
-    uint8_t value = 0;
-    void increment() { value = (value + 1) % 5; }
-};
-
-static const i2s_config_t i2s_config =
-    {
-        .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_TX),
-        .sample_rate = 22050, // Note, all files must be this
-        .bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT,
-        .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,
-        .communication_format = (i2s_comm_format_t)(I2S_COMM_FORMAT_STAND_I2S | I2S_COMM_FORMAT_STAND_MSB),
-        .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1, // high interrupt priority
-        .dma_buf_count = 8,                       // 8 buffers
-        .dma_buf_len = 256,                       // 256 bytes per buffer, so 2K of buffer space
-        .use_apll = 0,
-        .tx_desc_auto_clear = true,
-        .fixed_mclk = -1};
 
 class AudioClipController
 {
@@ -98,20 +79,22 @@ private:
 
     
     Index5 _musicIdx;
-    AudioClip *musicItem[5];
-    AudioClip *fordMustangV8_StartItem;
-    AudioClip *fordMustangV8_IdleItem;    
-    AudioClip *fordMustangV8_Accel_1_Item;
-    AudioClip *fordMustangV8_Accel_2_Item;
-    AudioClip *fordMustangV8_EndItem;
-    AudioClip *blinkerItem;
-    AudioClip *backingUpBeepItem;
-    AudioClip *gearChangeItem;
-    AudioClip *gearChangeFailItem;
-    AudioClip *connectionLostItem;
-    AudioClip *chargingItem;
+    AudioClip *_musicItem[5];
+    AudioClip *_fordMustangV8_StartItem;
+    AudioClip *_fordMustangV8_IdleItem;    
+    AudioClip *_fordMustangV8_Accel_1_Item;
+    AudioClip *_fordMustangV8_Accel_2_Item;
+    AudioClip *_fordMustangV8_EndItem;
+    AudioClip *_blinkerItem;
+    AudioClip *_blinkerStartItem;
+    AudioClip *_blinkerStopItem;
+    AudioClip *_backingUpBeepItem;
+    AudioClip *_gearChangeItem;
+    AudioClip *_gearChangeFailItem;
+    AudioClip *_connectionLostItem;
+    AudioClip *_chargingItem;
 
-    AudioClip *hornItem[5]; 
+    AudioClip *_hornItem[5]; 
 
     static void _soundControllerTask(void *param);
     void _soundControllerTask();
@@ -122,11 +105,10 @@ private:
 
     void _serialPrint(const char *procName, const char *who);
 
-    uint16_t Mix(byte *samples);
-    bool hasActiveClips();
+    uint16_t _mix(byte *samples);
+    bool _hasActiveClips();
 
-    static void clampSample(int32_t &mixedSample, int activeCount);
-
+    static void ClampSample(int32_t &mixedSample, int activeCount);
     static bool FillI2SBuffer(byte *Samples, uint16_t BytesInBuffer);
     void _cleanupClips();
 };
