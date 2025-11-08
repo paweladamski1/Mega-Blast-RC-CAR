@@ -101,6 +101,18 @@ void BluePad32Controller::_handleInput()
 
     _padData.playMusic = _get_PadX_ToggleState();
 
+    _padData.volumeUp = _get_PadR1_ToggleState();
+    _padData.volumeDown = _get_PadL1_ToggleState();
+
+    static bool prevNextMusic = false;
+    static bool prevPrevMusic = false;
+
+    _padData.nextMusic = inRange(gamepad->axisRX(), -200, 200) && prevNextMusic;
+    _padData.prevMusic = inRange(gamepad->axisRX(), -200, 200) && prevPrevMusic;
+
+    prevNextMusic = gamepad->axisRX() > 200;
+    prevPrevMusic = gamepad->axisRX() < -200;
+
     _padData.systemBtn = gamepad->miscButtons() & PS4_BTN;
 
     if (_padData.hasData)
@@ -169,19 +181,41 @@ void BluePad32Controller::_handleActionButtons()
     }
 
     if (_padData.playMusic)
-    {
-        static bool xState = false;
-        xState = !xState;
-
+    { 
         Serial.print(" Square ");
-        if (xState)
+        if (!sound.isMusicPlaying())
             sound.playMusic();
         else
             sound.stopMusic();
     }
 
-    if (_get_PadL1_ToggleState())
-        Serial.print(" l1 ");
+    if (_padData.nextMusic)
+    {
+        Serial.print(" R Stick Right ");
+        sound.playNextMusic();
+        _padData.nextMusic = false;
+    }
+
+    if (_padData.prevMusic)
+    {
+        Serial.print(" R Stick Left ");
+        sound.playPrevMusic();
+        _padData.prevMusic = false;
+    }
+
+    if (_padData.volumeUp)
+    {
+        Serial.print(" R1 ");
+        sound.setVolumeUp();
+        _padData.volumeUp = false;
+    }
+
+    if(_padData.volumeDown)
+    {
+        Serial.print(" L1 ");
+        sound.setVolumeDown();
+        _padData.volumeDown = false;
+    }
 }
 
 void BluePad32Controller::_onAction_UserStopEngine()

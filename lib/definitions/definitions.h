@@ -74,6 +74,11 @@ struct SPadData
     bool indicatorRight = false;
     bool horn = false;
     bool playMusic = false;
+    bool nextMusic = false;
+    bool prevMusic = false;
+    bool volumeUp = false;
+    bool volumeDown = false;
+
     bool systemBtn = false;
 
     unsigned long lastPacket = 0;
@@ -88,6 +93,7 @@ struct Index5
 {
     uint8_t value = 0;
     void increment() { value = (value + 1) % 5; }
+    void decrement() { value = (value + 4) % 5; }
 };
 
 static const i2s_config_t i2s_config =
@@ -104,5 +110,9 @@ static const i2s_config_t i2s_config =
         .tx_desc_auto_clear = true,
         .fixed_mclk = -1};
 
+template <typename T>
+bool inRange(T value, T minVal, T maxVal) {
+    return (value >= minVal && value <= maxVal);
+}
         
 #endif // DEFINITIONS_H
