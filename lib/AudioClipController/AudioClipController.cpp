@@ -63,8 +63,8 @@ void AudioClipController::begin()
     _fordMustangV8_StartItem = new AudioClip(this, "/1965FordMustangV8start.wav", 0.3f, false, 95.0f);
     _fordMustangV8_IdleItem = new AudioClip(this, "/1965FordMustangV8idle.wav", 0.4f, true, 100.0f);
     _fordMustangV8_EndItem = new AudioClip(this, "/1965FordMustangV8end.wav", 0.3f, false);
-    _fordMustangV8_Accel_1_Item = new AudioClip(this, "/1965FordMustangV8accel1.wav", 0.7f);
-    _fordMustangV8_Accel_2_Item = new AudioClip(this, "/1965FordMustangV8accel2.wav", 0.7f);
+    _fordMustangV8_Accel_1_Item = new AudioClip(this, "/1965FordMustangV8accel1.wav", 0.9f);
+    _fordMustangV8_Accel_2_Item = new AudioClip(this, "/1965FordMustangV8accel2.wav", 0.9f);
 
     _gearChangeItem = new AudioClip(this, "/gear_change.wav", 0.5f, false);
     _gearChangeFailItem = new AudioClip(this, "/gear_change_err.wav", 0.5f, false);
@@ -194,6 +194,19 @@ void AudioClipController::_soundControllerTask()
             musicOn_State = false;
         }
 
+        if( _MusicPrev_Req)
+        {
+            _serialPrint("_controller", "PREV Music");
+            _MusicPrev_Req = false;
+            if (_musicItem[_musicIdx.value]->isPlaying())
+                _musicItem[_musicIdx.value]->stop();
+
+             _musicIdx.decrement(); 
+
+            _MusicOn_Req = true;
+            musicOn_State = false;
+        }
+
         // turn of
         if (!_engineOn_Req && engineOn_State)
         {
@@ -290,16 +303,44 @@ void AudioClipController::playBackingUpBeep(bool isPlay)
 void AudioClipController::playMusic()
 {
     _MusicOn_Req = true;
+    _fordMustangV8_IdleItem->stop(); // lower engine idle volume when music playing
 }
 
 void AudioClipController::playNextMusic()
 {
+    playMusic();
     _MusicNext_Req = true;
+}
+
+void AudioClipController::playPrevMusic()
+{
+    playMusic();
+    _MusicPrev_Req = true;
+}
+
+void AudioClipController::setVolumeUp()
+{
+    _volume += 0.1f;
+    if (_volume > 1.0f)
+        _volume = 1.0f;
+}
+
+void AudioClipController::setVolumeDown()
+{
+    _volume -= 0.1f;
+    if (_volume < 0.0f)
+        _volume = 0.0f;
 }
 
 void AudioClipController::stopMusic()
 {
     _MusicOn_Req = false;
+    _fordMustangV8_IdleItem->play(); // restore engine idle volume when music stopped
+}
+
+bool AudioClipController::isMusicPlaying() const
+{
+    return _MusicOn_Req;
 }
 
 void AudioClipController::playGearChange()

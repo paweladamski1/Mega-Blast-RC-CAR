@@ -39,7 +39,11 @@ public:
 
     void playMusic();
     void playNextMusic();
+    void playPrevMusic();
+    void setVolumeUp();
+    void setVolumeDown();
     void stopMusic();
+    bool isMusicPlaying() const;
     void playGearChange();
     void playGearChangeFail();
 
@@ -62,6 +66,7 @@ private:
     volatile bool _hornOn;
     volatile bool _MusicOn_Req;
     volatile bool _MusicNext_Req;
+    volatile bool _MusicPrev_Req;
     volatile bool _cleanupClipList_Req  = false;
     volatile bool _connectionLost_Req  = false;
     volatile bool _isCharging_Req  = false;
